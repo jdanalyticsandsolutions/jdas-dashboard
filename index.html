@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>JD Analytics &amp; Solutions — Current Events in Business</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <style>
+    :root{
+      --bg:#0c0f14; --panel:#121721; --panel-2:#161d27; --text:#eef2f7; --muted:#9fb0c3;
+      --accent:#4da3ff; --accent-2:#61d095; --danger:#ff6b6b; --border:#263140; --shadow:rgba(0,0,0,.35);
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:linear-gradient(180deg,#0b0f15 0%, #0f141a 100%);
+      color:var(--text); font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+    }
+    .appbar{
+      position:sticky; top:0; z-index:50; backdrop-filter:saturate(1.2) blur(6px);
+      background:rgba(18,23,33,.9); border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between; padding:14px 16px;
+    }
+    .title{font-size:16px; font-weight:600; letter-spacing:.2px}
+    .pill{border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:12px; color:var(--muted)}
+    .container{max-width:1100px; margin:0 auto; padding:14px}
+    .grid{display:grid; gap:12px; grid-template-columns:repeat(2,1fr)}
+    @media(min-width:780px){ .grid{grid-template-columns:repeat(3,1fr)} }
+    .stack{display:grid; gap:12px; margin-top:14px}
+    .appbtn{
+      background:linear-gradient(180deg,#151c26,#121721);
+      border:1px solid var(--border); border-radius:20px; padding:16px;
+      display:flex; flex-direction:column; gap:8px; min-height:96px;
+      box-shadow:0 8px 20px var(--shadow); cursor:pointer; transition:transform .06s ease, border-color .2s;
+      user-select:none;
+    }
+    .appbtn:active{transform:scale(.98)}
+    .appbtn:hover{border-color:var(--accent)}
+    .appbtn .label{font-weight:600}
+    .appbtn .sub{font-size:12px; color:var(--muted)}
+    .card{
+      background:linear-gradient(180deg,#121721,#0f141a);
+      border:1px solid var(--border); border-radius:var(--radius); padding:14px; overflow:hidden;
+      box-shadow:0 10px 24px var(--shadow);
+    }
+    .card h2{margin:0 0 10px 0; font-size:15px; font-weight:600; color:#d9e4ee}
+    .status{display:flex; gap:8px; align-items:center; color:var(--muted); font-size:13px}
+    .status .badge{border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:12px; background:#0b1117}
+    .status .badge.ok{color:var(--accent-2); border-color:#245a43}
+    .status .badge.err{color:var(--danger); border-color:#5a2a2a}
+    .tablewrap{overflow:auto; border-radius:12px; border:1px solid var(--border)}
+    table{width:100%; border-collapse:collapse; font-size:14px; background:#0c1117}
+    thead th{position:sticky; top:0; background:#101722; color:var(--muted); text-align:left; padding:10px; border-bottom:1px solid var(--border)}
+    tbody td{padding:10px; border-bottom:1px dashed #223041; vertical-align:top}
+    .empty,.loading{padding:24px; text-align:center; color:var(--muted)}
+    @keyframes pulse{0%,100%{opacity:.55} 50%{opacity:1}}
+    .loading{animation:pulse 1.2s ease-in-out infinite}
+    .spacer{height:14px}
+    .hint{color:var(--muted); font-size:12px}
+  </style>
+</head>
+<body>
+  <!-- Top Bar -->
+  <div class="appbar">
+    <div class="title">JD Analytics &amp; Solutions — Current Events in Business</div>
+    <div class="pill" id="apiPill">API: http://localhost:8000</div>
+  </div>
+
+  <div class="container">
+    <!-- App Buttons -->
+    <div class="grid" role="navigation" aria-label="Datasets">
+      <button class="appbtn" data-ds="company">
+        <div class="label">Company Investments</div>
+        <div class="sub">Notes by company</div>
+      </button>
+      <button class="appbtn" data-ds="bankruptcies">
+        <div class="label">Bankruptcy Log</div>
+        <div class="sub">Company &amp; date logged</div>
+      </button>
+      <button class="appbtn" data-ds="layoffs">
+        <div class="label">Layoff Tracking</div>
+        <div class="sub">Date &amp; company</div>
+      </button>
+      <button class="appbtn" data-ds="tariffs">
+        <div class="label">Tariff % by Country</div>
+        <div class="sub">Rates as of Aug 1</div>
+      </button>
+    </div>
+
+    <!-- Status -->
+    <div class="card">
+      <div class="status">
+        <span class="badge" id="statusBadge">Idle</span>
+        <span id="statusText">Tap a tile to load data.</span>
+      </div>
+    </div>
+
+    <!-- Content stack: Slides + Data + Chatbot -->
+    <div class="stack">
+      <!-- Google Slides Card -->
+      <section class="card" aria-label="Slides">
+        <h2>JDAS Charts (Google Slides)</h2>
+        <iframe
+          src="https://docs.google.com/presentation/d/e/2PACX-1vRGJlR4RGlAk94AcAzCwfCT4SoWWmQRjuLHqT7mQm-8skb7zhPzvJKyqGs60i-XT_siGPS4m_vKAHrc/embed?start=false&loop=false&delayms=3000"
+          width="100%" height="480" frameborder="0" allowfullscreen
+          style="border:0; border-radius:12px; background:#0b0f15">
+        </iframe>
+      </section>
+
+      <!-- Data Table Card -->
+      <section class="card" aria-label="Data">
+        <h2 id="cardTitle">Dataset</h2>
+        <div id="mount" class="empty">No data loaded yet.</div>
+      </section>
+
+      <!-- Chatbot Card (reliable in embedded dashboards) -->
+      <section class="card" aria-label="Chatbot">
+        <h2>Ask JDAS (Chatbot)</h2>
+        <iframe
+          src="https://www.chatbase.co/chatbot-iframe/Vndl5JBBKFxsFxy9De-K1"
+          width="100%"
+          height="560"
+          frameborder="0"
+          style="border:0; border-radius:12px; background:transparent"
+          allow="clipboard-read; clipboard-write">
+        </iframe>
+        <div class="hint">If the floating bubble doesn’t show in this embed, this panel will always work.</div>
+      </section>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="hint">Tip: Open your API docs at <code>http://localhost:8000/docs</code></div>
+  </div>
+
+  <!-- ===== App Script ===== -->
+  <script>
+    // === Config ===
+    const API_BASE = "http://localhost:8000"; // change to your hosted HTTPS API for production
+    document.getElementById("apiPill").textContent = `API: ${API_BASE}`;
+
+    // === Fetch helper ===
+    async function fetchJSON(path){
+      const url = `${API_BASE}${path}`;
+      const res = await fetch(url);
+      if(!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+      return res.json();
+    }
+    const api = {
+      company:      () => fetchJSON("/api/company-investments"),
+      bankruptcies: () => fetchJSON("/api/bankruptcies"),
+      layoffs:      () => fetchJSON("/api/layoffs"),
+      tariffs:      () => fetchJSON("/api/tariff-by-country"),
+    };
+
+    // === UI helpers ===
+    const mount = document.getElementById("mount");
+    const statusBadge = document.getElementById("statusBadge");
+    const statusText = document.getElementById("statusText");
+    const cardTitle = document.getElementById("cardTitle");
+
+    function setStatus(kind, text){
+      statusBadge.classList.remove("ok","err");
+      if(kind==="ok") statusBadge.classList.add("ok");
+      if(kind==="err") statusBadge.classList.add("err");
+      statusBadge.textContent = kind==="ok" ? "OK" : kind==="err" ? "Error" : "Loading…";
+      statusText.textContent = text;
+    }
+    function labelFor(ds){
+      return ({
+        company:"Company Investments",
+        bankruptcies:"Bankruptcy Log",
+        layoffs:"Layoff Tracking",
+        tariffs:"Tariff % by Country"
+      })[ds] || ds;
+    }
+    function escapeHTML(s){
+      return String(s)
+        .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;").replaceAll("'","&#39;");
+    }
+    function valueToText(v){
+      if (v===null || v===undefined) return "";
+      if (typeof v==="object") return JSON.stringify(v);
+      return String(v);
+    }
+    function renderTable(rows){
+      if(!rows || rows.length===0){
+        mount.className="empty";
+        mount.innerHTML="No rows found.";
+        return;
+      }
+      const cols = Array.from(rows.reduce((s,r)=>{Object.keys(r).forEach(k=>s.add(k)); return s;}, new Set()));
+      const thead = `<thead><tr>${cols.map(c=>`<th>${escapeHTML(c)}</th>`).join("")}</tr></thead>`;
+      const tbody = `<tbody>${
+        rows.map(r=>`<tr>${
+          cols.map(c=>`<td>${escapeHTML(valueToText(r[c]))}</td>`).join("")
+        }</tr>`).join("")
+      }</tbody>`;
+      mount.className="tablewrap";
+      mount.innerHTML = `<table>${thead}${tbody}</table>`;
+    }
+
+    // === Button actions ===
+    function attachActions(){
+      document.querySelectorAll(".appbtn").forEach(btn=>{
+        btn.addEventListener("click", async ()=>{
+          const ds = btn.getAttribute("data-ds");
+          cardTitle.textContent = labelFor(ds);
+          mount.className="loading";
+          mount.textContent=`Loading ${labelFor(ds)}…`;
+          setStatus("", `Loading ${labelFor(ds)}…`);
+          try{
+            const rows = await api[ds]();
+            renderTable(rows);
+            setStatus("ok", `Loaded ${rows.length} row(s) from ${labelFor(ds)}.`);
+          }catch(err){
+            console.error(err);
+            mount.className="empty";
+            mount.innerHTML = `<div style="color: var(--danger)">Failed to load.</div><div class="hint">${escapeHTML(err.message)}</div>`;
+            setStatus("err", `Failed to load ${labelFor(ds)}.`);
+          }
+        });
+      });
+    }
+    attachActions();
+  </script>
+
+  <!-- OPTIONAL: Floating bubble works on non-sandboxed pages (NOT inside Wix HTML embed) -->
+  <!--
+  <script
+    src="https://www.chatbase.co/embed.min.js"
+    id="chatbase-script"
+    data-chatbot-id="Vndl5JBBKFxsFxy9De-K1"
+    data-theme="dark"
+    defer>
+  </script>
+  -->
+</body>
+</html>
