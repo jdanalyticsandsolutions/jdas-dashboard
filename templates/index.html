@@ -5,60 +5,6 @@
   <meta charset="UTF-8" />
   <title>JD Analytics &amp; Solutions — Current Events in Business</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <style>
-    :root{
-      --bg:#0c0f14; --panel:#121721; --panel-2:#161d27; --text:#eef2f7; --muted:#9fb0c3;
-      --accent:#4da3ff; --accent-2:#61d095; --danger:#ff6b6b; --border:#263140; --shadow:rgba(0,0,0,.35);
-      --radius:16px;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0; background:linear-gradient(180deg,#0b0f15 0%, #0f141a 100%);
-      color:var(--text); font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-    }
-    .appbar{
-      position:sticky; top:0; z-index:50; backdrop-filter:saturate(1.2) blur(6px);
-      background:rgba(18,23,33,.9); border-bottom:1px solid var(--border);
-      display:flex; align-items:center; justify-content:space-between; padding:14px 16px;
-    }
-    .title{font-size:16px; font-weight:600; letter-spacing:.2px}
-    .pill{border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:12px; color:var(--muted)}
-    .container{max-width:1100px; margin:0 auto; padding:14px}
-    .grid{display:grid; gap:12px; grid-template-columns:repeat(2,1fr)}
-    @media(min-width:780px){ .grid{grid-template-columns:repeat(3,1fr)} }
-    .stack{display:grid; gap:12px; margin-top:14px}
-    .appbtn{
-      background:linear-gradient(180deg,#151c26,#121721);
-      border:1px solid var(--border); border-radius:20px; padding:16px;
-      display:flex; flex-direction:column; gap:8px; min-height:96px;
-      box-shadow:0 8px 20px var(--shadow); cursor:pointer; transition:transform .06s ease, border-color .2s;
-      user-select:none;
-    }
-    .appbtn:active{transform:scale(.98)}
-    .appbtn:hover{border-color:var(--accent)}
-    .appbtn .label{font-weight:600}
-    .appbtn .sub{font-size:12px; color:var(--muted)}
-    .card{
-      background:linear-gradient(180deg,#121721,#0f141a);
-      border:1px solid var(--border); border-radius:var(--radius); padding:14px; overflow:hidden;
-      box-shadow:0 10px 24px var(--shadow);
-    }
-    .card h2{margin:0 0 10px 0; font-size:15px; font-weight:600; color:#d9e4ee}
-    .status{display:flex; gap:8px; align-items:center; color:var(--muted); font-size:13px}
-    .status .badge{border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:12px; background:#0b1117}
-    .status .badge.ok{color:var(--accent-2); border-color:#245a43}
-    .status .badge.err{color:var(--danger); border-color:#5a2a2a}
-    .tablewrap{overflow:auto; border-radius:12px; border:1px solid var(--border)}
-    table{width:100%; border-collapse:collapse; font-size:14px; background:#0c1117}
-    thead th{position:sticky; top:0; background:#101722; color:var(--muted); text-align:left; padding:10px; border-bottom:1px solid var(--border)}
-    tbody td{padding:10px; border-bottom:1px dashed #223041; vertical-align:top}
-    .empty,.loading{padding:24px; text-align:center; color:var(--muted)}
-    @keyframes pulse{0%,100%{opacity:.55} 50%{opacity:1}}
-    .loading{animation:pulse 1.2s ease-in-out infinite}
-    .spacer{height:14px}
-    .hint{color:var(--muted); font-size:12px}
-  </style>
 </head>
 <body>
   <!-- Top Bar -->
