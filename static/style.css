@@ -1,0 +1,160 @@
+/* ======================================
+   JD Analytics & Solutions
+   Current Events in Business Dashboard
+   Navy & Blue-Steel on Battleship Grey
+   ====================================== */
+
+:root {
+  /* Core palette */
+  --bg-battleship: #8d8f92;         /* battleship grey base */
+  --bg-battleship-2: #9a9da0;       /* gradient lift */
+  --navy-800: #172338;              /* deep navy */
+  --navy-700: #1b2a48;              /* panel/button base */
+  --navy-600: #243557;              /* hover / raised */
+  --navy-500: #2d3d63;              /* active / focus */
+  --blue-400: #5a8dee;              /* accent blue */
+  --blue-300: #7aa3f1;              /* lighter accent */
+  --steel-300: #ccd2da;             /* border silver */
+  --steel-200: #dde3ea;             /* light lines */
+  --text-100: #f4f7fb;              /* near white text */
+  --text-200: #e9eef5;              /* light text */
+  --text-400: #3a4658;              /* dark text on light bg */
+  --muted: #5d6b7f;
+  --danger: #e14b4b;
+
+  --radius: 18px;
+  --shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+/* ===== Base / Reset ===== */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text-400);
+  /* Battleship grey background with subtle vertical gradient */
+  background: linear-gradient(180deg, var(--bg-battleship) 0%, var(--bg-battleship-2) 100%);
+}
+
+/* Optional texture/lighting */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(255,255,255,0.18), transparent 60%),
+    radial-gradient(1000px 600px at 100% 110%, rgba(0,0,0,0.10), transparent 60%);
+}
+
+/* ===== App Bar ===== */
+.appbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  background: rgba(232,235,240,0.65);      /* translucent silver on grey */
+  backdrop-filter: blur(8px) saturate(1.1);
+  border-bottom: 1px solid var(--steel-300);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+.title {
+  color: var(--navy-800);
+  font-size: 16px; font-weight: 700; letter-spacing: .2px;
+}
+.pill {
+  border: 1px solid var(--steel-300);
+  color: var(--navy-800);
+  background: linear-gradient(180deg, #eef2f7, #e3e8ee);
+  border-radius: 999px; padding: 4px 10px; font-size: 12px;
+}
+
+/* ===== Layout ===== */
+.container { max-width: 1100px; margin: 0 auto; padding: 16px; position: relative; z-index: 1; }
+
+.grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+/* ===== App Buttons (dark on light) ===== */
+.appbtn {
+  background: linear-gradient(180deg, var(--navy-700), var(--navy-600));
+  color: var(--text-200);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 18px;
+  min-height: 100px;
+  display: flex; flex-direction: column; justify-content: center;
+  text-align: left; cursor: pointer; user-select: none;
+  box-shadow: var(--shadow);
+  transition: transform .08s ease, box-shadow .2s ease, border-color .2s ease, background .25s ease;
+}
+.appbtn:hover {
+  background: linear-gradient(180deg, var(--navy-600), var(--navy-500));
+  border-color: var(--steel-300);
+  transform: translateY(-2px);
+}
+.appbtn:active { transform: scale(.985); }
+.appbtn .label { font-weight: 700; color: var(--blue-300); font-size: 15px; }
+.appbtn .sub { font-size: 12px; color: #cfd8ea; opacity: .9; }
+
+/* ===== Cards (dark panels for content) ===== */
+.card {
+  background: linear-gradient(180deg, var(--navy-700), var(--navy-600));
+  color: var(--text-200);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  transition: border-color .2s ease, transform .08s ease;
+}
+.card:hover { border-color: var(--steel-300); }
+.card h2 {
+  margin: 0 0 10px; font-size: 16px; font-weight: 700; color: #ffffff;
+}
+
+/* ===== Status strip ===== */
+.status { display: flex; align-items: center; gap: 8px; color: #d7e3f7; font-size: 13px; }
+.badge {
+  border-radius: 999px; padding: 4px 10px; font-size: 12px;
+  background: #0f1b30; border: 1px solid rgba(255,255,255,0.14); color: var(--text-100);
+}
+.badge.ok { color: var(--blue-300); border-color: var(--blue-300); }
+.badge.err { color: var(--danger); border-color: rgba(225,75,75,0.6); }
+
+/* ===== Tables (dark content on silver page) ===== */
+.tablewrap {
+  overflow: auto; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #0f1b30;
+}
+table { width: 100%; border-collapse: collapse; font-size: 14px; color: var(--text-100); }
+thead th {
+  position: sticky; top: 0;
+  background: #13223a;
+  color: #e8eefb;
+  text-align: left; padding: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.14);
+}
+tbody td {
+  padding: 10px; border-bottom: 1px dashed rgba(255,255,255,0.12); vertical-align: top;
+}
+tbody tr:hover { background: rgba(90,141,238,0.08); }
+
+/* ===== Messages ===== */
+.empty, .loading { padding: 24px; text-align: center; color: #cfd8ea; }
+@keyframes pulse { 0%,100%{opacity:.55} 50%{opacity:1} }
+.loading { animation: pulse 1.2s ease-in-out infinite; }
+
+/* ===== Helpers ===== */
+.hint { color: #e6ebf3; opacity: .8; font-size: 12px; }
+.spacer { height: 14px; }
+
+/* ===== Embeds ===== */
+iframe { border-radius: 12px; }
+
+/* ===== Responsive tweaks ===== */
+@media (max-width: 700px) {
+  .appbtn { min-height: 90px; padding: 14px; }
+  .card h2 { font-size: 15px; }
+}
