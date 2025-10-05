@@ -136,7 +136,7 @@
   <!-- ===== App Script ===== -->
   <script>
     // === Config ===
-    const API_BASE = "http://localhost:8000"; // change to your hosted HTTPS API for production
+const API_BASE = location.origin; // use same origin as the page (Render domain)
     document.getElementById("apiPill").textContent = `API: ${API_BASE}`;
 
     // === Fetch helper ===
