@@ -263,5 +263,204 @@
     // === Boot: default view (U.S. Trade → Company Investments) ===
     loadDataForSelection();
   </script>
+<!-- ===== Helpers: production API base + shared JS (ONE COPY) ===== -->
+<script>window.API_BASE = "https://jdas-backend.onrender.com";</script>
+<script src="/static/app.js?v=6" onerror="console.error('Failed to load /static/app.js')"></script>
+
+<!-- ===== Fallback if /static/app.js didn't load ===== -->
+<script>
+(function ensureJDAS(){
+  if (window.JDAS && window.JDAS.api) return; // app.js loaded fine
+  const API_BASE = (window.API_BASE && String(window.API_BASE).trim())
+    || `${location.protocol}//${location.host}`;
+
+  async function fetchJSON(path, { method="GET", body=null } = {}) {
+    const url = `${API_BASE}${path}`;
+    const res = await fetch(url, { method, body, cache: "no-store", headers: { "Accept": "application/json" } });
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}`);
+    return res.json();
+  }
+
+  const api = {
+    companyInvestments: (top=5000) => fetchJSON(`/api/company-investments?top=${encodeURIComponent(top)}`),
+    bankruptcies:       ()          => fetchJSON("/api/bankruptcies"),
+    layoffs:            ()          => fetchJSON("/api/layoffs"),
+    tariffByCountry:    ()          => fetchJSON("/api/tariff-by-country"),
+    health:             ()          => fetchJSON("/health")
+  };
+  window.JDAS = { API_BASE, api };
+  console.warn("Fallback JDAS initialized (app.js missing).");
+})();
+</script>
+
+<!-- ===== Page logic (wires buttons + loads data) ===== -->
+<script>
+  // DOM refs
+  const apiPill     = document.getElementById("apiPill");
+  const docsLink    = document.getElementById("docsLink");
+  const statusBadge = document.getElementById("statusBadge");
+  const statusText  = document.getElementById("statusText");
+  const cardTitle   = document.getElementById("cardTitle");
+  const mount       = document.getElementById("mount");
+  const catBar      = document.getElementById("categoryBar");
+  const contentTitle= document.getElementById("contentTitle");
+
+  const subtabGroups = {
+    trade:  document.getElementById('subtabs-trade'),
+    kpi:    document.getElementById('subtabs-kpi'),
+    global: document.getElementById('subtabs-global'),
+    labor:  document.getElementById('subtabs-labor'),
+    energy: document.getElementById('subtabs-energy'),
+  };
+
+  // Show API base / docs
+  const { API_BASE, api } = window.JDAS;
+  if (apiPill) apiPill.textContent = `API: ${API_BASE}`;
+  if (docsLink) docsLink.href = `${API_BASE}/docs`;
+
+  // Status helpers
+  function setStatus(kind, text){
+    if (!statusBadge || !statusText) return;
+    statusBadge.classList.remove("ok","err");
+    if(kind==="ok")  statusBadge.classList.add("ok");
+    if(kind==="err") statusBadge.classList.add("err");
+    statusBadge.textContent = kind==="ok" ? "OK" : kind==="err" ? "Error" : "Loading…";
+    statusText.textContent  = text;
+  }
+
+  // Health check
+  (async () => {
+    for (let i=0;i<6;i++){
+      try {
+        const j = await api.health();
+        if (j && j.ok){ setStatus("ok","API ready."); break; }
+      } catch(e) {
+        setStatus("", "Warming API (Render free plan may take ~30–60s)...");
+      }
+      await new Promise(r=>setTimeout(r,5000));
+    }
+  })();
+
+  // Table renderer
+  function escapeHTML(s){ return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
+  function valueToText(v){ if (v==null) return ""; if (typeof v==="object") return JSON.stringify(v); return String(v); }
+  function renderTable(rows){
+    if(!rows || rows.length===0){ mount.className="empty"; mount.innerHTML="No rows found."; return; }
+    const cols = Array.from(rows.reduce((s,r)=>{Object.keys(r).forEach(k=>s.add(k)); return s;}, new Set()));
+    const thead = `<thead><tr>${cols.map(c=>`<th>${escapeHTML(c)}</th>`).join("")}</tr></thead>`;
+    const tbody = `<tbody>${
+      rows.map(r=>`<tr>${cols.map(c=>`<td>${escapeHTML(valueToText(r[c]))}</td>`).join("")}</tr>`).join("")
+    }</tbody>`;
+    mount.className="tablewrap"; mount.innerHTML = `<table>${thead}${tbody}</table>`;
+  }
+
+  // State
+  let currentCat = 'trade';
+  let currentSub = 'investments';
+
+  // Loaders
+  const LOADERS = {
+    trade: {
+      investments:     { label: "Company Investments",   fn: () => api.companyInvestments(5000) },
+      tariffByCountry: { label: "Tariff % by Country",   fn: api.tariffByCountry }
+    },
+    labor: {
+      bankruptcy:      { label: "Bankruptcy Log",        fn: api.bankruptcies },
+      layoffs:         { label: "Layoff Tracking",       fn: api.layoffs }
+    }
+    // (kpi/global/energy to be added later)
+  };
+
+  function buildTitle(){
+    const catLabel = {
+      trade: 'U.S. Trade',
+      kpi: 'KPI / Key Stats',
+      global: 'Global Events',
+      labor: 'Labor & Society',
+      energy: 'Environmental & Energy'
+    }[currentCat];
+
+    const subLabelMap = {
+      investments: 'Company Investments',
+      tariffByCountry: 'Tariff % by Country',
+      bankruptcy: 'Bankruptcy Log',
+      layoffs: 'Layoff Tracking'
+    };
+    const subLabel = currentSub ? ` — ${subLabelMap[currentSub]}` : '';
+    return `${catLabel}${subLabel}`;
+  }
+
+  async function loadDataForSelection(){
+    const group = LOADERS[currentCat] || {};
+    const cfg = group[currentSub];
+
+    // Update titles
+    const fullTitle = buildTitle();
+    if (contentTitle) contentTitle.textContent = fullTitle;
+    if (cardTitle)    cardTitle.textContent    = cfg?.label || "Dataset";
+
+    if(!cfg){
+      mount.className = "empty";
+      mount.innerHTML = "No dataset wired for this category yet.";
+      return;
+    }
+
+    try{
+      setStatus("", `Loading ${cfg.label}…`);
+      mount.className="loading";
+      mount.textContent = `Loading ${cfg.label}…`;
+      const rows = await cfg.fn();
+      renderTable(rows);
+      setStatus("ok", `Loaded ${rows.length} row(s) from ${cfg.label}.`);
+    }catch(err){
+      console.error(err);
+      mount.className="empty";
+      mount.innerHTML = `<div style="color: var(--danger)">Failed to load.</div><div class="hint">${escapeHTML(err.message)}</div>`;
+      setStatus("err", `Failed to load ${cfg.label}.`);
+    }
+  }
+
+  function setActive(btns, target){
+    btns.forEach(b => b.classList.toggle('active', b === target));
+  }
+
+  // Category switching
+  catBar.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-cat]');
+    if(!btn) return;
+    if(btn.dataset.cat === currentCat) return;
+
+    setActive([...catBar.querySelectorAll('button[data-cat]')], btn);
+
+    Object.entries(subtabGroups).forEach(([k, el])=>{
+      el.classList.toggle('hidden', k !== btn.dataset.cat);
+    });
+
+    currentCat = btn.dataset.cat;
+    const firstSub = subtabGroups[currentCat].querySelector('button[data-sub]');
+    currentSub = firstSub ? firstSub.dataset.sub : null;
+
+    if(firstSub){
+      subtabGroups[currentCat].querySelectorAll('button[data-sub]').forEach((b,i)=>{
+        b.classList.toggle('active', i===0);
+      });
+    }
+    loadDataForSelection();
+  });
+
+  // Subtab switching
+  Object.values(subtabGroups).forEach(group=>{
+    group.addEventListener?.('click', (e)=>{
+      const btn = e.target.closest('button[data-sub]');
+      if(!btn) return;
+      setActive([...group.querySelectorAll('button[data-sub]')], btn);
+      currentSub = btn.dataset.sub;
+      loadDataForSelection();
+    });
+  });
+
+  // Boot
+  loadDataForSelection();
+</script>
 </body>
 </html>
