@@ -4,59 +4,107 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>JD Analytics & Solutions — Current Events in Business</title>
-  <!-- Link to your CSS -->
-<link rel="stylesheet" href="/static/style.css?v=20251005c">
+
+  <!-- Theme / layout styles (bump the ?v when you deploy) -->
+  <link rel="stylesheet" href="/static/style.css?v=2025-10-05-d">
+
+  <!-- Tiny utility for show/hide (kept here so JS toggles always work) -->
+  <style>.hidden{display:none !important}</style>
 </head>
 
 <body>
   <!-- Top Bar -->
   <div class="appbar">
     <div class="title">JD Analytics &amp; Solutions — Current Events in Business</div>
-    <div class="pill" id="apiPill">API: …</div>
+    <div style="display:flex; gap:8px; align-items:center">
+      <div class="pill">Build: 2025-10-05d</div>
+      <div class="pill" id="apiPill">API: …</div>
+    </div>
   </div>
 
-  <!-- BEGIN CATEGORY + SUBTABLE NAV (Step 1) -->
-  <style>
-    /* keep styles here for Step 1 so we only touch index.html */
-    .category-bar, .subtable-bar { display:grid; gap:12px; margin:10px 0 14px; }
-    .category-bar { grid-template-columns: repeat(5, minmax(0,1fr)); }
-    .subtable-bar { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-    .nav-btn { padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:600; cursor:pointer; }
-    .nav-btn.active { outline:0; border-color:var(--accent); }
-    .hidden { display:none; }
-    .section-host { background:var(--panel-2); border:1px solid var(--border); border-radius:16px; padding:16px; }
-  </style>
+  <div class="container">
+    <!-- CATEGORY BUTTONS -->
+    <div class="category-bar" id="categoryBar" role="tablist" aria-label="Main categories">
+      <button class="nav-btn active" data-cat="trade"   aria-selected="true" role="tab">U.S. Trade</button>
+      <button class="nav-btn"         data-cat="kpi"     role="tab">KPI / Key Stats</button>
+      <button class="nav-btn"         data-cat="global"  role="tab">Global Events</button>
+      <button class="nav-btn"         data-cat="labor"   role="tab">Labor &amp; Society</button>
+      <button class="nav-btn"         data-cat="energy"  role="tab">Environmental &amp; Energy</button>
+    </div>
 
-  <!-- CATEGORY BUTTONS -->
-  <div class="category-bar" id="categoryBar">
-    <button class="nav-btn active" data-cat="trade"   aria-pressed="true">U.S. Trade</button>
-    <button class="nav-btn"         data-cat="kpi">KPI / Key Stats</button>
-    <button class="nav-btn"         data-cat="global">Global Events</button>
-    <button class="nav-btn"         data-cat="labor">Labor &amp; Society</button>
-    <button class="nav-btn"         data-cat="energy">Environmental &amp; Energy</button>
+    <!-- SUBTABLE BUTTONS (shown per category) -->
+    <div class="subtable-bar" id="subtabs-trade"   role="tablist" aria-label="U.S. Trade subtabs">
+      <button class="nav-btn active" data-sub="investments"    aria-selected="true" role="tab">Company Investments</button>
+      <button class="nav-btn"         data-sub="tariffByCountry" role="tab">Tariff % by Country</button>
+    </div>
+    <div class="subtable-bar hidden" id="subtabs-kpi"    role="tablist" aria-label="KPI subtabs"></div>
+    <div class="subtable-bar hidden" id="subtabs-global" role="tablist" aria-label="Global Events subtabs"></div>
+    <div class="subtable-bar hidden" id="subtabs-labor"  role="tablist" aria-label="Labor & Society subtabs">
+      <button class="nav-btn active" data-sub="bankruptcy" role="tab">Bankruptcy Log</button>
+      <button class="nav-btn"         data-sub="layoffs"    role="tab">Layoff Tracking</button>
+    </div>
+    <div class="subtable-bar hidden" id="subtabs-energy" role="tablist" aria-label="Environmental & Energy subtabs"></div>
+
+    <!-- Content host (title reflects current selection) -->
+    <section id="contentHost" class="section-host" aria-live="polite">
+      <h3 id="contentTitle" style="margin:0 0 8px;">U.S. Trade — Company Investments</h3>
+      <div style="opacity:.8">Select a sub-category to view data.</div>
+    </section>
+
+    <!-- Status -->
+    <div class="card" aria-label="Status">
+      <div class="status">
+        <span class="badge" id="statusBadge">Checking…</span>
+        <span id="statusText">Warming up API.</span>
+      </div>
+    </div>
+
+    <!-- Content stack: Slides + Data + Chatbot -->
+    <div class="stack">
+      <section class="card" aria-label="Slides">
+        <h2>JDAS Charts (Google Slides)</h2>
+        <iframe
+          src="https://docs.google.com/presentation/d/e/2PACX-1vRGJlR4RGlAk94AcAzCwfCT4SoWWmQRjuLHqT7mQm-8skb7zhPzvJKyqGs60i-XT_siGPS4m_vKAHrc/embed?start=false&loop=false&delayms=3000"
+          width="100%" height="480" frameborder="0" allowfullscreen
+          style="border:0; border-radius:12px; background:#0b0f15">
+        </iframe>
+      </section>
+
+      <section class="card" aria-label="Data">
+        <h2 id="cardTitle">Dataset</h2>
+        <div id="mount" class="empty">No data loaded yet.</div>
+      </section>
+
+      <section class="card" aria-label="Chatbot">
+        <h2>Ask JDAS (Chatbot)</h2>
+        <iframe
+          src="https://www.chatbase.co/chatbot-iframe/Vndl5JBBKFxsFxy9De-K1"
+          width="100%" height="560" frameborder="0"
+          style="border:0; border-radius:12px; background:transparent"
+          allow="clipboard-read; clipboard-write">
+        </iframe>
+        <div class="hint">First call may take a few seconds while the API wakes.</div>
+      </section>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="hint">Open API docs: <a href="#" id="docsLink" target="_blank" rel="noopener">/docs</a></div>
   </div>
 
-  <!-- SUBTABLE BUTTONS (shown per category) -->
-  <div class="subtable-bar" id="subtabs-trade">
-    <button class="nav-btn active" data-sub="investments">Company Investments</button>
-    <button class="nav-btn"         data-sub="tariffByCountry">Tariff % by Country</button>
-  </div>
-  <div class="subtable-bar hidden" id="subtabs-kpi"></div>
-  <div class="subtable-bar hidden" id="subtabs-global"></div>
-  <div class="subtable-bar hidden" id="subtabs-labor">
-    <button class="nav-btn active" data-sub="bankruptcy">Bankruptcy Log</button>
-    <button class="nav-btn"         data-sub="layoffs">Layoff Tracking</button>
-  </div>
-  <div class="subtable-bar hidden" id="subtabs-energy"></div>
+  <!-- Shared API helpers (load ONCE, before page logic) -->
+  <script>window.API_BASE = "https://jdas-backend.onrender.com";</script> <!-- comment this for local dev -->
+  <script src="/static/app.js?v=5"></script>
 
-  <!-- CONTENT HOST (we’ll wire data in Step 2) -->
-  <section id="contentHost" class="section-host">
-    <h3 id="contentTitle" style="margin:0 0 8px;">U.S. Trade — Company Investments</h3>
-    <div style="opacity:.8">UI ready. We’ll connect data next.</div>
-  </section>
-
+  <!-- Page logic -->
   <script>
-    // Simple toggles (Step 1 only)
+    // === DOM refs ===
+    const apiPill     = document.getElementById("apiPill");
+    const docsLink    = document.getElementById("docsLink");
+    const statusBadge = document.getElementById("statusBadge");
+    const statusText  = document.getElementById("statusText");
+    const cardTitle   = document.getElementById("cardTitle");
+    const mount       = document.getElementById("mount");
+
     const catBar = document.getElementById('categoryBar');
     const contentTitle = document.getElementById('contentTitle');
     const subtabGroups = {
@@ -66,52 +114,63 @@
       labor:  document.getElementById('subtabs-labor'),
       energy: document.getElementById('subtabs-energy'),
     };
+
+    // === Show API base / docs ===
+    const { API_BASE, api } = window.JDAS;
+    apiPill.textContent = `API: ${API_BASE}`;
+    docsLink.href = `${API_BASE}/docs`;
+
+    // === Status helpers ===
+    function setStatus(kind, text){
+      statusBadge.classList.remove("ok","err");
+      if(kind==="ok") statusBadge.classList.add("ok");
+      if(kind==="err") statusBadge.classList.add("err");
+      statusBadge.textContent = kind==="ok" ? "OK" : kind==="err" ? "Error" : "Loading…";
+      statusText.textContent = text;
+    }
+
+    // === Health check (helps when Render wakes) ===
+    (async () => {
+      for (let i=0;i<6;i++){
+        try {
+          const j = await api.health();
+          if (j && j.ok){ setStatus("ok","API ready."); break; }
+        } catch(e) {
+          setStatus("", "Warming API (Render free plan may take ~30–60s)...");
+        }
+        await new Promise(r=>setTimeout(r,5000));
+      }
+    })();
+
+    // === Minimal table renderer ===
+    function escapeHTML(s){ return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
+    function valueToText(v){ if (v==null) return ""; if (typeof v==="object") return JSON.stringify(v); return String(v); }
+    function renderTable(rows){
+      if(!rows || rows.length===0){ mount.className="empty"; mount.innerHTML="No rows found."; return; }
+      const cols = Array.from(rows.reduce((s,r)=>{Object.keys(r).forEach(k=>s.add(k)); return s;}, new Set()));
+      const thead = `<thead><tr>${cols.map(c=>`<th>${escapeHTML(c)}</th>`).join("")}</tr></thead>`;
+      const tbody = `<tbody>${
+        rows.map(r=>`<tr>${cols.map(c=>`<td>${escapeHTML(valueToText(r[c]))}</td>`).join("")}</tr>`).join("")
+      }</tbody>`;
+      mount.className="tablewrap"; mount.innerHTML = `<table>${thead}${tbody}</table>`;
+    }
+
+    // === Category/Subtab state ===
     let currentCat = 'trade';
     let currentSub = 'investments';
 
-    function setActive(btns, target){
-      btns.forEach(b => b.classList.toggle('active', b === target));
-    }
-
-    // Category switching
-    catBar.addEventListener('click', (e)=>{
-      const btn = e.target.closest('button[data-cat]');
-      if(!btn) return;
-      if(btn.dataset.cat === currentCat) return;
-
-      // active state on category buttons
-      setActive([...catBar.querySelectorAll('button[data-cat]')], btn);
-
-      // show the right subtab group
-      Object.entries(subtabGroups).forEach(([k, el])=>{
-        el.classList.toggle('hidden', k !== btn.dataset.cat);
-      });
-
-      // set default subtab per category
-      currentCat = btn.dataset.cat;
-      const firstSub = subtabGroups[currentCat].querySelector('button[data-sub]');
-      currentSub = firstSub ? firstSub.dataset.sub : null;
-
-      // reset active state in shown group (first button active)
-      if(firstSub){
-        subtabGroups[currentCat].querySelectorAll('button[data-sub]').forEach((b,i)=>{
-          b.classList.toggle('active', i===0);
-        });
+    // Map (category, subtab) -> loader + label
+    const LOADERS = {
+      trade: {
+        investments:    { label: "Company Investments",   fn: () => api.companyInvestments(5000) },
+        tariffByCountry:{ label: "Tariff % by Country",   fn: api.tariffByCountry }
+      },
+      labor: {
+        bankruptcy:     { label: "Bankruptcy Log",        fn: api.bankruptcies },
+        layoffs:        { label: "Layoff Tracking",       fn: api.layoffs }
       }
-
-      contentTitle.textContent = buildTitle();
-    });
-
-    // Subtab switching
-    Object.values(subtabGroups).forEach(group=>{
-      group.addEventListener?.('click', (e)=>{
-        const btn = e.target.closest('button[data-sub]');
-        if(!btn) return;
-        setActive([...group.querySelectorAll('button[data-sub]')], btn);
-        currentSub = btn.dataset.sub;
-        contentTitle.textContent = buildTitle();
-      });
-    });
+      // KPI / Global / Energy: add subtabs later
+    };
 
     function buildTitle(){
       const catLabel = {
@@ -131,221 +190,78 @@
       const subLabel = currentSub ? ` — ${subLabelMap[currentSub]}` : '';
       return `${catLabel}${subLabel}`;
     }
-  </script>
-  <!-- END CATEGORY + SUBTABLE NAV (Step 1) -->
 
-  <!-- Status -->
-  <div class="card">
-    <div class="status">
-      <span class="badge" id="statusBadge">Checking…</span>
-      <span id="statusText">Warming up API.</span>
-    </div>
-  </div>
+    async function loadDataForSelection(){
+      const group = LOADERS[currentCat] || {};
+      const cfg = group[currentSub];
 
-  <!-- Content stack: Slides + Data + Chatbot -->
-  <div class="stack">
-    <section class="card" aria-label="Slides">
-      <h2>JDAS Charts (Google Slides)</h2>
-      <iframe
-        src="https://docs.google.com/presentation/d/e/2PACX-1vRGJlR4RGlAk94AcAzCwfCT4SoWWmQRjuLHqT7mQm-8skb7zhPzvJKyqGs60i-XT_siGPS4m_vKAHrc/embed?start=false&loop=false&delayms=3000"
-        width="100%" height="480" frameborder="0" allowfullscreen
-        style="border:0; border-radius:12px; background:#0b0f15"></iframe>
-    </section>
+      // Update titles either way
+      const fullTitle = buildTitle();
+      contentTitle.textContent = fullTitle;
+      cardTitle.textContent = cfg?.label || "Dataset";
 
-    <section class="card" aria-label="Data">
-      <h2 id="cardTitle">Dataset</h2>
-      <div id="mount" class="empty">No data loaded yet.</div>
-    </section>
-
-    <section class="card" aria-label="Chatbot">
-      <h2>Ask JDAS (Chatbot)</h2>
-      <iframe
-        src="https://www.chatbase.co/chatbot-iframe/Vndl5JBBKFxsFxy9De-K1"
-        width="100%" height="560" frameborder="0"
-        style="border:0; border-radius:12px; background:transparent"
-        allow="clipboard-read; clipboard-write"></iframe>
-      <div class="hint">First call may take a few seconds while the API wakes.</div>
-    </section>
-  </div>
-
-  <div class="spacer"></div>
-  <div class="hint">Open API docs: <a href="#" id="docsLink" target="_blank" rel="noopener">/docs</a></div>
-<!-- Use shared API + helpers -->
-<script>window.API_BASE = "https://jdas-backend.onrender.com";</script> <!-- local dev? comment this line -->
-<script src="/static/app.js?v=2"></script>
-
-  <!-- ===== App Script ===== -->
-<!-- Shared API helpers -->
-<script>window.API_BASE = "https://jdas-backend.onrender.com";</script> <!-- Comment out for local dev -->
-<script src="/static/app.js?v=3"></script>
-
-<script>
-  // === DOM refs ===
-  const apiPill     = document.getElementById("apiPill");
-  const docsLink    = document.getElementById("docsLink");
-  const statusBadge = document.getElementById("statusBadge");
-  const statusText  = document.getElementById("statusText");
-  const cardTitle   = document.getElementById("cardTitle");
-  const mount       = document.getElementById("mount");
-
-  const catBar = document.getElementById('categoryBar');
-  const contentTitle = document.getElementById('contentTitle');
-  const subtabGroups = {
-    trade:  document.getElementById('subtabs-trade'),
-    kpi:    document.getElementById('subtabs-kpi'),
-    global: document.getElementById('subtabs-global'),
-    labor:  document.getElementById('subtabs-labor'),
-    energy: document.getElementById('subtabs-energy'),
-  };
-
-  // === Show API base / docs ===
-  const { API_BASE, api } = window.JDAS;
-  apiPill.textContent = `API: ${API_BASE}`;
-  docsLink.href = `${API_BASE}/docs`;
-
-  // === Status helpers ===
-  function setStatus(kind, text){
-    statusBadge.classList.remove("ok","err");
-    if(kind==="ok") statusBadge.classList.add("ok");
-    if(kind==="err") statusBadge.classList.add("err");
-    statusBadge.textContent = kind==="ok" ? "OK" : kind==="err" ? "Error" : "Loading…";
-    statusText.textContent = text;
-  }
-
-  // === Health check (helps when Render wakes) ===
-  (async () => {
-    for (let i=0;i<6;i++){
-      try {
-        const j = await api.health();
-        if (j && j.ok){ setStatus("ok","API ready."); break; }
-      } catch(e) {
-        setStatus("", "Warming API (Render free plan may take ~30–60s)...");
+      if(!cfg){
+        mount.className = "empty";
+        mount.innerHTML = "No dataset wired for this category yet.";
+        return;
       }
-      await new Promise(r=>setTimeout(r,5000));
-    }
-  })();
 
-  // === Small table renderer (kept from your version) ===
-  function escapeHTML(s){ return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
-  function valueToText(v){ if (v==null) return ""; if (typeof v==="object") return JSON.stringify(v); return String(v); }
-  function renderTable(rows){
-    if(!rows || rows.length===0){ mount.className="empty"; mount.innerHTML="No rows found."; return; }
-    const cols = Array.from(rows.reduce((s,r)=>{Object.keys(r).forEach(k=>s.add(k)); return s;}, new Set()));
-    const thead = `<thead><tr>${cols.map(c=>`<th>${escapeHTML(c)}</th>`).join("")}</tr></thead>`;
-    const tbody = `<tbody>${
-      rows.map(r=>`<tr>${cols.map(c=>`<td>${escapeHTML(valueToText(r[c]))}</td>`).join("")}</tr>`).join("")
-    }</tbody>`;
-    mount.className="tablewrap"; mount.innerHTML = `<table>${thead}${tbody}</table>`;
-  }
-
-  // === Category/Subtab state ===
-  let currentCat = 'trade';
-  let currentSub = 'investments';
-
-  // Map (category, subtab) -> loader + label
-  const LOADERS = {
-    trade: {
-      investments:    { label: "Company Investments",   fn: () => api.companyInvestments(5000) },
-      tariffByCountry:{ label: "Tariff % by Country",   fn: api.tariffByCountry }
-    },
-    labor: {
-      bankruptcy:     { label: "Bankruptcy Log",        fn: api.bankruptcies },
-      layoffs:        { label: "Layoff Tracking",       fn: api.layoffs }
-    }
-    // kpi/global/energy: add later
-  };
-
-  function buildTitle(){
-    const catLabel = {
-      trade: 'U.S. Trade',
-      kpi: 'KPI / Key Stats',
-      global: 'Global Events',
-      labor: 'Labor & Society',
-      energy: 'Environmental & Energy'
-    }[currentCat];
-
-    const subLabelMap = {
-      investments: 'Company Investments',
-      tariffByCountry: 'Tariff % by Country',
-      bankruptcy: 'Bankruptcy Log',
-      layoffs: 'Layoff Tracking'
-    };
-    const subLabel = currentSub ? ` — ${subLabelMap[currentSub]}` : '';
-    return `${catLabel}${subLabel}`;
-  }
-
-  async function loadDataForSelection(){
-    const group = LOADERS[currentCat] || {};
-    const cfg = group[currentSub];
-
-    // Update titles either way
-    const fullTitle = buildTitle();
-    contentTitle.textContent = fullTitle;
-    cardTitle.textContent = cfg?.label || "Dataset";
-
-    if(!cfg){
-      mount.className = "empty";
-      mount.innerHTML = "No dataset wired for this category yet.";
-      return;
+      try{
+        setStatus("", `Loading ${cfg.label}…`);
+        mount.className="loading";
+        mount.textContent = `Loading ${cfg.label}…`;
+        const rows = await cfg.fn();
+        renderTable(rows);
+        setStatus("ok", `Loaded ${rows.length} row(s) from ${cfg.label}.`);
+      }catch(err){
+        console.error(err);
+        mount.className="empty";
+        mount.innerHTML = `<div style="color: var(--danger)">Failed to load.</div><div class="hint">${escapeHTML(err.message)}</div>`;
+        setStatus("err", `Failed to load ${cfg.label}.`);
+      }
     }
 
-    try{
-      setStatus("", `Loading ${cfg.label}…`);
-      mount.className="loading";
-      mount.textContent = `Loading ${cfg.label}…`;
-      const rows = await cfg.fn();
-      renderTable(rows);
-      setStatus("ok", `Loaded ${rows.length} row(s) from ${cfg.label}.`);
-    }catch(err){
-      console.error(err);
-      mount.className="empty";
-      mount.innerHTML = `<div style="color: var(--danger)">Failed to load.</div><div class="hint">${escapeHTML(err.message)}</div>`;
-      setStatus("err", `Failed to load ${cfg.label}.`);
+    function setActive(btns, target){
+      btns.forEach(b => b.classList.toggle('active', b === target));
     }
-  }
 
-  function setActive(btns, target){
-    btns.forEach(b => b.classList.toggle('active', b === target));
-  }
-
-  // === Category switching ===
-  catBar.addEventListener('click', (e)=>{
-    const btn = e.target.closest('button[data-cat]');
-    if(!btn) return;
-    if(btn.dataset.cat === currentCat) return;
-
-    setActive([...catBar.querySelectorAll('button[data-cat]')], btn);
-
-    Object.entries(subtabGroups).forEach(([k, el])=>{
-      el.classList.toggle('hidden', k !== btn.dataset.cat);
-    });
-
-    currentCat = btn.dataset.cat;
-    const firstSub = subtabGroups[currentCat].querySelector('button[data-sub]');
-    currentSub = firstSub ? firstSub.dataset.sub : null;
-
-    if(firstSub){
-      subtabGroups[currentCat].querySelectorAll('button[data-sub]').forEach((b,i)=>{
-        b.classList.toggle('active', i===0);
-      });
-    }
-    loadDataForSelection();
-  });
-
-  // === Subtab switching ===
-  Object.values(subtabGroups).forEach(group=>{
-    group.addEventListener?.('click', (e)=>{
-      const btn = e.target.closest('button[data-sub]');
+    // === Category switching ===
+    catBar.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-cat]');
       if(!btn) return;
-      setActive([...group.querySelectorAll('button[data-sub]')], btn);
-      currentSub = btn.dataset.sub;
+      if(btn.dataset.cat === currentCat) return;
+
+      setActive([...catBar.querySelectorAll('button[data-cat]')], btn);
+
+      Object.entries(subtabGroups).forEach(([k, el])=>{
+        el.classList.toggle('hidden', k !== btn.dataset.cat);
+      });
+
+      currentCat = btn.dataset.cat;
+      const firstSub = subtabGroups[currentCat].querySelector('button[data-sub]');
+      currentSub = firstSub ? firstSub.dataset.sub : null;
+
+      if(firstSub){
+        subtabGroups[currentCat].querySelectorAll('button[data-sub]').forEach((b,i)=>{
+          b.classList.toggle('active', i===0);
+        });
+      }
       loadDataForSelection();
     });
-  });
 
-  // === Boot: default view (U.S. Trade → Company Investments) ===
-  loadDataForSelection();
-</script>
+    // === Subtab switching ===
+    Object.values(subtabGroups).forEach(group=>{
+      group.addEventListener?.('click', (e)=>{
+        const btn = e.target.closest('button[data-sub]');
+        if(!btn) return;
+        setActive([...group.querySelectorAll('button[data-sub]')], btn);
+        currentSub = btn.dataset.sub;
+        loadDataForSelection();
+      });
+    });
+
+    // === Boot: default view (U.S. Trade → Company Investments) ===
+    loadDataForSelection();
+  </script>
 </body>
 </html>
-
