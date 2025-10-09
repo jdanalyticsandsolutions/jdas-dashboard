@@ -178,10 +178,10 @@ TABLES: List[Dict[str, Any]] = [
     {"name":"Tariff % by Country",  "logical":"cred8_tariffbycountry",    "path":"/api/tariff-by-country",    "columns":[], "map_to":[], "orderby":"cred8_country asc"},
     {"name":"Tariff By Item",       "logical":"jdas_tariffbyitem",        "path":"/api/tariff-by-item",       "columns":[], "map_to":[], "orderby":""},
     {"name":"Trade Deals",          "logical":"cred8_tradedeal",          "path":"/api/trade-deals",          "columns":[], "map_to":[], "orderby":""},
-    {"name":"Tariff Revenue",       "logical":"Cred8_tariffrevenue",      "path":"/api/tariff-revenue",       "columns":[], "map_to":[], "orderby":"cred8_month desc"},
+    {"name":"Tariff Revenue",       "logical":"cred8_tariffrevenue",      "path":"/api/tariff-revenue",       "columns":[], "map_to":[], "orderby":"cred8_month desc"},
 
     # KPI
-    {"name":"Unemployment Rate",    "logical":"Cred8_unemploymentrate",   "path":"/api/unemployment-rate",    "columns":[], "map_to":[], "orderby":"cred8_month desc"},
+    {"name":"Unemployment Rate",    "logical":"cred8_unemploymentrate",   "path":"/api/unemployment-rate",    "columns":[], "map_to":[], "orderby":"cred8_month desc"},
     {"name":"Inflation Rate",       "logical":"cred8_inflationrate",      "path":"/api/inflation-rate",       "columns":[], "map_to":[], "orderby":"cred8_month desc"},
     {"name":"Economic Indicator (A)","logical":"jdas_economicindicator",  "path":"/api/economic-indicator",   "columns":[], "map_to":[], "orderby":""},
     {"name":"Manufacturing PMI Report","logical":"jdas_manufacturingpmireport","path":"/api/manufacturing-pmi-report","columns":[], "map_to":[], "orderby":"jdas_month desc"},
@@ -192,22 +192,30 @@ TABLES: List[Dict[str, Any]] = [
     {"name":"Economic Indicator (B)","logical":"jdas_economicindictator1","path":"/api/economic-indicator-1", "columns":[], "map_to":[], "orderby":""},
 
     # Labor & Society
-    {"name":"Publicly Annouced Revenue Loss","logical":"Cred8_publiclyannoucedrevenueloss","path":"/api/publicly-annouced-revenue-loss","columns":[], "map_to":[], "orderby":"cred8_amountloss desc"},
+    {"name":"Publicly Annouced Revenue Loss","logical":"cred8_publiclyannoucedrevenueloss","path":"/api/publicly-annouced-revenue-loss","columns":[], "map_to":[], "orderby":"cred8_amountloss desc"},
     {"name":"Layoff Announcement",  "logical":"jdas_layoffannoucement",   "path":"/api/layoff-announcement",  "columns":[], "map_to":[], "orderby":"jdas_announcementdate desc"},
     {"name":"Acquisition Deal",     "logical":"jdas_acquisitiondeal",     "path":"/api/acquisition-deal",     "columns":[], "map_to":[], "orderby":"jdas_announcedate desc"},
-    {"name":"Bankruptcy Log",       "logical":"Cred8_bankruptcylog",      "path":"/api/bankruptcies",         "columns":[], "map_to":[], "orderby":"cred8_datelogged desc"},
+    {"name":"Bankruptcy Log",       "logical":"cred8_bankruptcylog",      "path":"/api/bankruptcies",         "columns":[], "map_to":[], "orderby":"cred8_datelogged desc"},
     {"name":"Layoffs (Tracking)",   "logical":"jdas_layoffs",             "path":"/api/layoffs",              "columns":[], "map_to":[], "orderby":"jdas_date desc"},
 
     # Environmental & Energy
     {"name":"Environmental Regulation","logical":"jdas_environmentalregulation","path":"/api/environmental-regulation","columns":[], "map_to":[], "orderby":""},
-    {"name":"Environmental Policy", "logical":"Jdas_environmentalpolicy", "path":"/api/environmental-policy", "columns":[], "map_to":[], "orderby":""},
-    {"name":"Infrastructure Investment","logical":"infrastructure_investment","path":"/api/infrastructure-investment","columns":[], "map_to":[], "orderby":""},
+    {"name":"Environmental Policy", "logical":"jdas_environmentalpolicy", "path":"/api/environmental-policy", "columns":[], "map_to":[], "orderby":""},
+
+    # !!! Verify this one — your earlier error shows the logical name is wrong.
+    # Replace 'XXXX' after you run /api/search-entities?q=infrastructure (see below).
+    {"name":"Infrastructure Investment","logical":"XXXX_replace_with_real_logical","path":"/api/infrastructure-investment","columns":[], "map_to":[], "orderby":""},
 
     # Global Events
     {"name":"Corporate SpinOff",    "logical":"jdas_corporatespinoff",    "path":"/api/corporate-spinoff",    "columns":[], "map_to":[], "orderby":""},
+
+    # NOTE: This one may actually be 'jdas_conflictrecord' (with underscore).
+    # Use the search endpoint to confirm and update if needed.
     {"name":"Conflict Record",      "logical":"jdasconflictrecord",       "path":"/api/conflict-record",      "columns":[], "map_to":[], "orderby":""},
+
     {"name":"Global Natural Disasters","logical":"jdas_globalnaturaldisasters","path":"/api/global-natural-disasters","columns":[], "map_to":[], "orderby":""},
 ]
+
 
 # -------------------------
 # Route factory
