@@ -5,289 +5,225 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>JD Analytics &amp; Solutions — Current Events in Business</title>
 
-  <!-- Theme / layout styles (bump ?v when you deploy) -->
-  <link rel="stylesheet" href="/static/style.css?v=2025-10-05-e">
-
-  <!-- Minimal utility -->
-  <style>.hidden{display:none !important}</style>
+  <!-- bump the query when you change CSS to bust cache -->
+  <link rel="stylesheet" href="/static/style.css?v=2025-10-09-b" />
 </head>
-
 <body>
   <!-- Top Bar -->
-  <div class="appbar">
+  <header class="appbar">
     <div class="title">JD Analytics &amp; Solutions — Current Events in Business</div>
-    <div style="display:flex; gap:8px; align-items:center">
-      <div class="pill">Build: 2025-10-05e</div>
+    <div class="right">
+      <span class="pill">Build: 2025-10-09b</span>
+      <span class="pill" id="apiPill">API: …</span>
     </div>
-  </div>
+  </header>
 
-  <div class="container">
-    <!-- CATEGORY BUTTONS -->
-    <div class="category-bar" id="categoryBar" role="tablist" aria-label="Main categories">
-      <button class="nav-btn active" data-cat="trade"   aria-selected="true" role="tab">U.S. Trade</button>
-      <button class="nav-btn"         data-cat="kpi"     role="tab">KPI / Key Stats</button>
-      <button class="nav-btn"         data-cat="global"  role="tab">Global Events</button>
-      <button class="nav-btn"         data-cat="labor"   role="tab">Labor &amp; Society</button>
-      <button class="nav-btn"         data-cat="energy"  role="tab">Environmental &amp; Energy</button>
-    </div>
+  <main class="container">
+    <!-- Category Tabs -->
+    <nav class="category-bar" id="categoryBar" role="tablist" aria-label="Main categories"></nav>
 
-    <!-- SUBTABLE BUTTONS (shown per category) -->
-    <div class="subtable-bar" id="subtabs-trade" role="tablist" aria-label="U.S. Trade subtabs">
-      <button class="nav-btn active" data-sub="investments"      aria-selected="true" role="tab">Company Investments</button>
-      <button class="nav-btn"         data-sub="tariffByCountry" role="tab">Tariff % by Country</button>
-    </div>
-    <div class="subtable-bar hidden" id="subtabs-kpi"    role="tablist" aria-label="KPI subtabs"></div>
-    <div class="subtable-bar hidden" id="subtabs-global" role="tablist" aria-label="Global Events subtabs"></div>
-    <div class="subtable-bar hidden" id="subtabs-labor"  role="tablist" aria-label="Labor &amp; Society subtabs">
-      <button class="nav-btn active" data-sub="bankruptcy" role="tab">Bankruptcy Log</button>
-      <button class="nav-btn"         data-sub="layoffs"    role="tab">Layoff Tracking</button>
-    </div>
-    <div class="subtable-bar hidden" id="subtabs-energy" role="tablist" aria-label="Environmental &amp; Energy subtabs"></div>
-
-    <!-- Content host -->
-    <section id="contentHost" class="section-host" aria-live="polite">
-      <h3 id="contentTitle" style="margin:0 0 8px;">U.S. Trade — Company Investments</h3>
-      <div style="opacity:.8">Select a sub-category to view data.</div>
-    </section>
+    <!-- Subtable Tabs -->
+    <nav class="subtable-bar" id="subtabs" role="tablist" aria-label="Datasets"></nav>
 
     <!-- Status -->
-    <div class="card" aria-label="Status">
+    <section class="card">
       <div class="status">
         <span class="badge" id="statusBadge">Checking…</span>
         <span id="statusText">Warming up API.</span>
+        <span class="hint">Docs: <a id="docsLink" href="#" target="_blank" rel="noopener">/docs</a></span>
       </div>
-    </div>
+    </section>
 
-    <!-- Content stack -->
-    <div class="stack">
-      <section class="card" aria-label="Slides">
-        <h2>JDAS Charts (Google Slides)</h2>
-        <iframe
-          src="https://docs.google.com/presentation/d/e/2PACX-1vRGJlR4RGlAk94AcAzCwfCT4SoWWmQRjuLHqT7mQm-8skb7zhPzvJKyqGs60i-XT_siGPS4m_vKAHrc/embed?start=false&loop=false&delayms=3000"
-          width="100%" height="480" frameborder="0" allowfullscreen
-          style="border:0; border-radius:12px; background:#0b0f15"></iframe>
-      </section>
-
-      <section class="card" aria-label="Data">
-        <h2 id="cardTitle">Dataset</h2>
-        <div id="mount" class="empty">No data loaded yet.</div>
-      </section>
-
-      <section class="card" aria-label="Chatbot">
-        <h2>Ask JDAS (Chatbot)</h2>
-        <iframe
-          src="https://www.chatbase.co/chatbot-iframe/Vndl5JBBKFxsFxy9De-K1"
-          width="100%" height="560" frameborder="0"
-          style="border:0; border-radius:12px; background:transparent"
-          allow="clipboard-read; clipboard-write"></iframe>
-        <div class="hint">First call may take a few seconds while the API wakes.</div>
-      </section>
-    </div>
+    <!-- Data -->
+    <section class="card">
+      <h2 id="contentTitle" class="card-title">Select a dataset</h2>
+      <div id="mount" class="empty">No data loaded yet.</div>
+    </section>
 
     <div class="spacer"></div>
-    <div class="hint">Open API docs: <a href="#" id="docsLink" target="_blank" rel="noopener">/docs</a></div>
-  </div>
+  </main>
 
-  <!-- ===== Helpers: production API base + shared JS (ONE COPY) ===== -->
-  <script>window.API_BASE = "https://jdas-backend.onrender.com";</script>
-  <script src="/static/app.js?v=7" onerror="console.warn('app.js failed; using fallback')"></script>
-
-  <!-- ===== Fallback if /static/app.js didn't load ===== -->
   <script>
-  (function ensureJDAS(){
-    if (window.JDAS && window.JDAS.api) return; // helpers loaded fine
-    const API_BASE = (window.API_BASE && String(window.API_BASE).trim())
-      || `${location.protocol}//${location.host}`;
-    async function fetchJSON(path, { method="GET", body=null } = {}) {
+    // ---------- API base ----------
+    const API_BASE = `${location.protocol}//${location.host}`;
+    document.getElementById("apiPill").textContent = `API: ${API_BASE}`;
+    const docsLink = document.getElementById("docsLink"); if (docsLink) docsLink.href = `${API_BASE}/docs`;
+
+    // ---------- NEW TABLES (full set you asked for) ----------
+    const TABLES = {
+      trade: {
+        label: "U.S. Trade",
+        items: [
+          { key:"tradeDeficitAnnual",  label:"Trade Deficit Annual",      path:"/api/trade-deficit-annual" },
+          { key:"tariffByCountry",     label:"Tariff % by Country",       path:"/api/tariff-by-country" },
+          { key:"tariffByItem",        label:"Tariff By Item",            path:"/api/tariff-by-item" },
+          { key:"tradeDeals",          label:"Trade Deals",               path:"/api/trade-deals" },
+          { key:"tariffRevenue",       label:"Tariff Revenue",            path:"/api/tariff-revenue" }
+        ]
+      },
+      kpi: {
+        label: "KPI / Key Stats",
+        items: [
+          { key:"unemploymentRate",    label:"Unemployment Rate",         path:"/api/unemployment-rate" },
+          { key:"inflationRate",       label:"Inflation Rate",            path:"/api/inflation-rate" },
+          { key:"economicIndicatorA",  label:"Economic Indicator (A)",    path:"/api/economic-indicator" },
+          { key:"manufacturingPMI",    label:"Manufacturing PMI Report",  path:"/api/manufacturing-pmi-report" },
+          { key:"weeklyClaims",        label:"Weekly Claims Report",      path:"/api/weekly-claims-report" },
+          { key:"consumerConfidence",  label:"Consumer Confidence Index", path:"/api/consumer-confidence-index" },
+          { key:"treasuryYields",      label:"Treasury Yields Record",    path:"/api/treasury-yields-record" },
+          { key:"economicGrowth",      label:"Economic Growth Report",    path:"/api/economic-growth-report" },
+          { key:"economicIndicatorB",  label:"Economic Indicator (B)",    path:"/api/economic-indicator-1" }
+        ]
+      },
+      global: {
+        label: "Global Events",
+        items: [
+          { key:"corporateSpinoff",    label:"Corporate SpinOff",         path:"/api/corporate-spinoff" },
+          { key:"conflictRecord",      label:"Conflict Record",           path:"/api/conflict-record" },
+          { key:"globalDisasters",     label:"Global Natural Disasters",  path:"/api/global-natural-disasters" }
+        ]
+      },
+      labor: {
+        label: "Labor & Society",
+        items: [
+          { key:"publicRevenueLoss",   label:"Publicly Annouced Revenue Loss", path:"/api/publicly-annouced-revenue-loss" },
+          { key:"layoffAnnouncement",  label:"Layoff Announcement",             path:"/api/layoff-announcement" },
+          { key:"acquisitionDeal",     label:"Acquisition Deal",                path:"/api/acquisition-deal" },
+          { key:"bankruptcyLog",       label:"Bankruptcy Log",                  path:"/api/bankruptcies" },
+          { key:"layoffs",             label:"Layoff Tracking",                 path:"/api/layoffs" }
+        ]
+      },
+      energy: {
+        label: "Environmental & Energy",
+        items: [
+          { key:"envReg",              label:"Environmental Regulation",  path:"/api/environmental-regulation" },
+          { key:"envPolicy",           label:"Environmental Policy",      path:"/api/environmental-policy" },
+          { key:"infraInvestment",     label:"Infrastructure Investment", path:"/api/infrastructure-investment" }
+        ]
+      }
+    };
+
+    // ---------- Refs ----------
+    const $         = s => document.querySelector(s);
+    const statusB   = $("#statusBadge");
+    const statusT   = $("#statusText");
+    const mount     = $("#mount");
+    const catBar    = $("#categoryBar");
+    const subtabs   = $("#subtabs");
+    const titleEl   = $("#contentTitle");
+
+    // ---------- Status ----------
+    function setStatus(kind, text){
+      statusB?.classList.remove("ok","err");
+      if (kind === "ok")  statusB?.classList.add("ok");
+      if (kind === "err") statusB?.classList.add("err");
+      if (statusB) statusB.textContent = (kind === "ok" ? "OK" : kind === "err" ? "Error" : "Loading…");
+      if (statusT) statusT.textContent = text || "";
+    }
+
+    async function fetchJSON(path, opts = {}){
       const url = `${API_BASE}${path}`;
-      const res = await fetch(url, { method, body, cache: "no-store", headers: { "Accept": "application/json" } });
-      if (!res.ok) {
+      const res = await fetch(url, { cache:"no-store", headers:{ "Accept":"application/json" }, ...opts });
+      if (!res.ok){
         const txt = await res.text().catch(()=> "");
-        throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${txt.slice(0,240)}`);
+        throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${txt.slice(0,300)}`);
       }
       return res.json();
     }
-    window.JDAS = {
-      API_BASE,
-      api: {
-        companyInvestments: (top=5000) => fetchJSON(`/api/company-investments?top=${encodeURIComponent(top)}`),
-        bankruptcies:       ()          => fetchJSON("/api/bankruptcies"),
-        layoffs:            ()          => fetchJSON("/api/layoffs"),
-        tariffByCountry:    ()          => fetchJSON("/api/tariff-by-country"),
-        health:             ()          => fetchJSON("/health")
+
+    function escapeHTML(s){ return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
+    function valueToText(v){ if (v==null) return ""; if (typeof v==="object") return JSON.stringify(v); return String(v); }
+
+    function renderTable(rows){
+      if (!Array.isArray(rows) || rows.length === 0){
+        mount.className = "empty";
+        mount.textContent = "No rows found.";
+        return;
       }
-    };
-    console.warn("JDAS fallback active (app.js missing or cached stale).");
-  })();
-  </script>
-
-  <!-- ===== Page logic: wire UI + load data ===== -->
-  <script>
-    // DOM refs
-    const apiPill      = document.getElementById("apiPill");
-    const docsLink     = document.getElementById("docsLink");
-    const statusBadge  = document.getElementById("statusBadge");
-    const statusText   = document.getElementById("statusText");
-    const cardTitle    = document.getElementById("cardTitle");
-    const mount        = document.getElementById("mount");
-    const catBar       = document.getElementById("categoryBar");
-    const contentTitle = document.getElementById("contentTitle");
-
-    const subtabGroups = {
-      trade:  document.getElementById('subtabs-trade'),
-      kpi:    document.getElementById('subtabs-kpi'),
-      global: document.getElementById('subtabs-global'),
-      labor:  document.getElementById('subtabs-labor'),
-      energy: document.getElementById('subtabs-energy'),
-    };
-
-    // Show API base / docs
-    const { API_BASE, api } = window.JDAS;
-    if (apiPill)  apiPill.textContent = `API: ${API_BASE}`;
-    if (docsLink) docsLink.href = `${API_BASE}/docs`;
-
-    // Status helpers
-    function setStatus(kind, text){
-      if (!statusBadge || !statusText) return;
-      statusBadge.classList.remove("ok","err");
-      if(kind==="ok")  statusBadge.classList.add("ok");
-      if(kind==="err") statusBadge.classList.add("err");
-      statusBadge.textContent = kind==="ok" ? "OK" : kind==="err" ? "Error" : "Loading…";
-      statusText.textContent  = text;
+      const cols = Array.from(rows.reduce((s,r)=>{Object.keys(r||{}).forEach(k=>s.add(k)); return s;}, new Set()));
+      const thead = `<thead><tr>${cols.map(c=>`<th>${escapeHTML(c)}</th>`).join("")}</tr></thead>`;
+      const tbody = `<tbody>${rows.map(r=>`<tr>${
+        cols.map(c=>`<td>${escapeHTML(valueToText(r[c]))}</td>`).join("")
+      }</tr>`).join("")}</tbody>`;
+      mount.className = "tablewrap";
+      mount.innerHTML = `<table>${thead}${tbody}</table>`;
     }
 
-    // Warm-up health check (Render cold start)
-    (async () => {
+    // ---------- Build UI ----------
+    let currentCat = null;
+    let currentKey = null;
+
+    function buildCats(){
+      const cats = Object.keys(TABLES);
+      catBar.innerHTML = cats.map((c,i)=>`<button class="nav-btn ${i===0?"active":""}" data-cat="${c}" role="tab" aria-selected="${i===0}">${escapeHTML(TABLES[c].label)}</button>`).join("");
+      currentCat = cats[0];
+    }
+
+    function buildSubtabs(){
+      const items = TABLES[currentCat].items;
+      subtabs.innerHTML = items.map((it,i)=>`<button class="nav-btn ${i===0?"active":""}" data-key="${it.key}" role="tab" aria-selected="${i===0}">${escapeHTML(it.label)}</button>`).join("");
+      currentKey = items[0].key;
+    }
+
+    async function loadCurrent(){
+      const group = TABLES[currentCat];
+      const item  = group.items.find(i => i.key === currentKey);
+      const title = `${group.label} — ${item.label}`;
+      titleEl.textContent = title;
+
+      try{
+        setStatus("", `Loading ${item.label}…`);
+        mount.className = "loading";
+        mount.textContent = `Loading ${item.label}…`;
+        const data = await fetchJSON(item.path);
+        renderTable(Array.isArray(data) ? data : (data?.value || []));
+        setStatus("ok", `Loaded ${item.label}.`);
+      }catch(err){
+        mount.className = "empty";
+        mount.innerHTML = `<div class="error">Failed to load ${escapeHTML(item.label)}.</div><pre class="hint">${escapeHTML(err.message)}</pre>`;
+        setStatus("err", `Failed to load ${item.label}.`);
+      }
+    }
+
+    // interactions
+    catBar.addEventListener("click", e=>{
+      const btn = e.target.closest("button[data-cat]"); if (!btn) return;
+      if (btn.dataset.cat === currentCat) return;
+      [...catBar.querySelectorAll("button[data-cat]")].forEach(b => b.classList.toggle("active", b===btn));
+      currentCat = btn.dataset.cat;
+      buildSubtabs();
+      loadCurrent();
+    });
+
+    subtabs.addEventListener("click", e=>{
+      const btn = e.target.closest("button[data-key]"); if (!btn) return;
+      if (btn.dataset.key === currentKey) return;
+      [...subtabs.querySelectorAll("button[data-key]")].forEach(b => b.classList.toggle("active", b===btn));
+      currentKey = btn.dataset.key;
+      loadCurrent();
+    });
+
+    // ---------- Health warmup (try /api/health then /health) ----------
+    (async ()=>{
       for (let i=0;i<6;i++){
         try {
-          const j = await api.health();
+          const j = await fetchJSON("/api/health");
           if (j && j.ok){ setStatus("ok","API ready."); break; }
         } catch {
-          setStatus("", "Warming API (Render may take ~30–60s)...");
+          try {
+            const j2 = await fetchJSON("/health");
+            if (j2 && j2.ok){ setStatus("ok","API ready."); break; }
+          } catch {}
+          setStatus("", "Warming API…");
         }
-        await new Promise(r=>setTimeout(r,5000));
+        await new Promise(r=>setTimeout(r, 4000));
       }
     })();
 
-    // Table renderer
-    function escapeHTML(s){ return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
-    function valueToText(v){ if (v==null) return ""; if (typeof v==="object") return JSON.stringify(v); return String(v); }
-    function renderTable(rows){
-      if(!rows || rows.length===0){ mount.className="empty"; mount.innerHTML="No rows found."; return; }
-      const cols = Array.from(rows.reduce((s,r)=>{Object.keys(r).forEach(k=>s.add(k)); return s;}, new Set()));
-      const thead = `<thead><tr>${cols.map(c=>`<th>${escapeHTML(c)}</th>`).join("")}</tr></thead>`;
-      const tbody = `<tbody>${
-        rows.map(r=>`<tr>${cols.map(c=>`<td>${escapeHTML(valueToText(r[c]))}</td>`).join("")}</tr>`).join("")
-      }</tbody>`;
-      mount.className="tablewrap"; mount.innerHTML = `<table>${thead}${tbody}</table>`;
-    }
-
-    // State
-    let currentCat = 'trade';
-    let currentSub = 'investments';
-
-    // Dataset loaders
-    const LOADERS = {
-      trade: {
-        investments:     { label: "Company Investments",   fn: () => api.companyInvestments(5000) },
-        tariffByCountry: { label: "Tariff % by Country",   fn: api.tariffByCountry }
-      },
-      labor: {
-        bankruptcy:      { label: "Bankruptcy Log",        fn: api.bankruptcies },
-        layoffs:         { label: "Layoff Tracking",       fn: api.layoffs }
-      }
-      // (wire KPI / Global / Energy later)
-    };
-
-    function buildTitle(){
-      const catLabel = {
-        trade: 'U.S. Trade',
-        kpi: 'KPI / Key Stats',
-        global: 'Global Events',
-        labor: 'Labor & Society',
-        energy: 'Environmental & Energy'
-      }[currentCat];
-      const subLabelMap = {
-        investments: 'Company Investments',
-        tariffByCountry: 'Tariff % by Country',
-        bankruptcy: 'Bankruptcy Log',
-        layoffs: 'Layoff Tracking'
-      };
-      const subLabel = currentSub ? ` — ${subLabelMap[currentSub]}` : '';
-      return `${catLabel}${subLabel}`;
-    }
-
-    async function loadDataForSelection(){
-      const group = LOADERS[currentCat] || {};
-      const cfg = group[currentSub];
-
-      // Titles
-      const fullTitle = buildTitle();
-      if (contentTitle) contentTitle.textContent = fullTitle;
-      if (cardTitle)    cardTitle.textContent    = cfg?.label || "Dataset";
-
-      if(!cfg){
-        mount.className = "empty";
-        mount.innerHTML = "No dataset wired for this category yet.";
-        return;
-      }
-
-      try{
-        setStatus("", `Loading ${cfg.label}…`);
-        mount.className="loading";
-        mount.textContent = `Loading ${cfg.label}…`;
-        const rows = await cfg.fn();
-        renderTable(rows);
-        setStatus("ok", `Loaded ${rows.length} row(s) from ${cfg.label}.`);
-      }catch(err){
-        console.error(err);
-        mount.className="empty";
-        mount.innerHTML = `<div style="color: var(--danger)">Failed to load.</div><div class="hint">${escapeHTML(err.message)}</div>`;
-        setStatus("err", `Failed to load ${cfg.label}.`);
-      }
-    }
-
-    function setActive(btns, target){
-      btns.forEach(b => b.classList.toggle('active', b === target));
-    }
-
-    // Category switching
-    catBar.addEventListener('click', (e)=>{
-      const btn = e.target.closest('button[data-cat]');
-      if(!btn) return;
-      if(btn.dataset.cat === currentCat) return;
-
-      setActive([...catBar.querySelectorAll('button[data-cat]')], btn);
-
-      Object.entries(subtabGroups).forEach(([k, el])=>{
-        el.classList.toggle('hidden', k !== btn.dataset.cat);
-      });
-
-      currentCat = btn.dataset.cat;
-      const firstSub = subtabGroups[currentCat].querySelector('button[data-sub]');
-      currentSub = firstSub ? firstSub.dataset.sub : null;
-
-      if(firstSub){
-        subtabGroups[currentCat].querySelectorAll('button[data-sub]').forEach((b,i)=>{
-          b.classList.toggle('active', i===0);
-        });
-      }
-      loadDataForSelection();
-    });
-
-    // Subtab switching
-    Object.values(subtabGroups).forEach(group=>{
-      group.addEventListener?.('click', (e)=>{
-        const btn = e.target.closest('button[data-sub]');
-        if(!btn) return;
-        setActive([...group.querySelectorAll('button[data-sub]')], btn);
-        currentSub = btn.dataset.sub;
-        loadDataForSelection();
-      });
-    });
-
-    // Boot
-    loadDataForSelection();
+    // boot
+    buildCats();
+    buildSubtabs();
+    loadCurrent();
   </script>
 </body>
 </html>
