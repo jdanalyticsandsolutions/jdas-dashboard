@@ -81,6 +81,133 @@ def root_info():
         "health": "/health",
         "dataverse": DATAVERSE_ENABLED,
     }
+# --- add near your other imports ---
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+app = FastAPI()
+
+# Static + templates (adjust paths if yours differ)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+# ----- health (support both) -----
+@app.get("/health")
+@app.get("/api/health")
+def health():
+    return {"ok": True}
+
+# ----- home -----
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+# ===== TRADE =====
+@app.get("/api/trade-deficit-annual")
+def trade_deficit_annual():
+    return []  # TODO: fill with Dataverse rows
+
+@app.get("/api/tariff-by-country")
+def tariff_by_country():
+    return []
+
+@app.get("/api/tariff-by-item")
+def tariff_by_item():
+    return []
+
+@app.get("/api/trade-deals")
+def trade_deals():
+    return []
+
+@app.get("/api/tariff-revenue")
+def tariff_revenue():
+    return []
+
+# ===== KPI =====
+@app.get("/api/unemployment-rate")
+def unemployment_rate():
+    return []
+
+@app.get("/api/inflation-rate")
+def inflation_rate():
+    return []
+
+@app.get("/api/economic-indicator")
+def economic_indicator_a():
+    return []
+
+@app.get("/api/manufacturing-pmi-report")
+def manufacturing_pmi():
+    return []
+
+@app.get("/api/weekly-claims-report")
+def weekly_claims():
+    return []
+
+@app.get("/api/consumer-confidence-index")
+def consumer_confidence():
+    return []
+
+@app.get("/api/treasury-yields-record")
+def treasury_yields():
+    return []
+
+@app.get("/api/economic-growth-report")
+def economic_growth():
+    return []
+
+@app.get("/api/economic-indicator-1")
+def economic_indicator_b():
+    return []
+
+# ===== GLOBAL =====
+@app.get("/api/corporate-spinoff")
+def corporate_spinoff():
+    return []
+
+@app.get("/api/conflict-record")
+def conflict_record():
+    return []
+
+@app.get("/api/global-natural-disasters")
+def global_disasters():
+    return []
+
+# ===== LABOR & SOCIETY =====
+@app.get("/api/publicly-annouced-revenue-loss")  # note: 'annouced' matches your front-end spelling
+def public_revenue_loss():
+    return []
+
+@app.get("/api/layoff-announcement")
+def layoff_announcement():
+    return []
+
+@app.get("/api/acquisition-deal")
+def acquisition_deal():
+    return []
+
+@app.get("/api/bankruptcies")
+def bankruptcies():
+    return []
+
+@app.get("/api/layoffs")
+def layoffs():
+    return []
+
+# ===== ENVIRONMENTAL & ENERGY =====
+@app.get("/api/environmental-regulation")
+def env_regulation():
+    return []
+
+@app.get("/api/environmental-policy")
+def env_policy():
+    return []
+
+@app.get("/api/infrastructure-investment")
+def infrastructure_investment():
+    return []
 
 # -------------------------
 # Dataverse helpers (guarded) — async httpx + caching + OData headers
