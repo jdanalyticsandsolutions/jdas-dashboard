@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>JD Analytics &amp; Solutions — Current Events in Business</title>
 
-  <!-- bump the query when you change CSS to bust cache -->
-  <link rel="stylesheet" href="/static/style.css?v=2025-10-09-b" />
+  <!-- bump ?v to bust cache when you change CSS -->
+  <link rel="stylesheet" href="/static/style.css?v=2025-10-09-c" />
+  <style>.hidden{display:none!important}.error{color:#ff99aa}</style>
 </head>
 <body>
   <!-- Top Bar -->
@@ -22,34 +23,56 @@
     <!-- Category Tabs -->
     <nav class="category-bar" id="categoryBar" role="tablist" aria-label="Main categories"></nav>
 
-    <!-- Subtable Tabs -->
+    <!-- Subtable Tabs (auto) -->
     <nav class="subtable-bar" id="subtabs" role="tablist" aria-label="Datasets"></nav>
 
     <!-- Status -->
-    <section class="card">
+    <section class="card" aria-label="Status">
       <div class="status">
         <span class="badge" id="statusBadge">Checking…</span>
         <span id="statusText">Warming up API.</span>
-        <span class="hint">Docs: <a id="docsLink" href="#" target="_blank" rel="noopener">/docs</a></span>
+        <span class="hint" style="margin-left:auto">Docs: <a id="docsLink" href="#" target="_blank" rel="noopener">/docs</a></span>
       </div>
     </section>
 
     <!-- Data -->
-    <section class="card">
+    <section class="card" aria-label="Data">
       <h2 id="contentTitle" class="card-title">Select a dataset</h2>
       <div id="mount" class="empty">No data loaded yet.</div>
+    </section>
+
+    <!-- Slides -->
+    <section class="card" aria-label="Slides">
+      <h2 class="card-title">JDAS Charts (Google Slides)</h2>
+      <iframe
+        src="https://docs.google.com/presentation/d/e/2PACX-1vRGJlR4RGlAk94AcAzCwfCT4SoWWmQRjuLHqT7mQm-8skb7zhPzvJKyqGs60i-XT_siGPS4m_vKAHrc/embed?start=false&loop=false&delayms=3000"
+        width="100%" height="480" frameborder="0" allowfullscreen
+        style="border:0;border-radius:12px;background:#0b0f15"></iframe>
+    </section>
+
+    <!-- Chatbot -->
+    <section class="card" aria-label="Chatbot">
+      <h2 class="card-title">Ask JDAS (Chatbot)</h2>
+      <iframe
+        src="https://www.chatbase.co/chatbot-iframe/Vndl5JBBKFxsFxy9De-K1"
+        width="100%" height="560" frameborder="0"
+        style="border:0;border-radius:12px;background:transparent"
+        allow="clipboard-read; clipboard-write"></iframe>
+      <div class="hint">First call may take a few seconds while the API wakes.</div>
     </section>
 
     <div class="spacer"></div>
   </main>
 
   <script>
-    // ---------- API base ----------
+    // ---------- API base (same-origin) ----------
     const API_BASE = `${location.protocol}//${location.host}`;
-    document.getElementById("apiPill").textContent = `API: ${API_BASE}`;
-    const docsLink = document.getElementById("docsLink"); if (docsLink) docsLink.href = `${API_BASE}/docs`;
+    const apiPill  = document.getElementById("apiPill");
+    if (apiPill) apiPill.textContent = `API: ${API_BASE}`;
+    const docsLink = document.getElementById("docsLink");
+    if (docsLink) docsLink.href = `${API_BASE}/docs`;
 
-    // ---------- NEW TABLES (full set you asked for) ----------
+    // ---------- FULL TABLES (your new set) ----------
     const TABLES = {
       trade: {
         label: "U.S. Trade",
@@ -104,20 +127,20 @@
     };
 
     // ---------- Refs ----------
-    const $         = s => document.querySelector(s);
-    const statusB   = $("#statusBadge");
-    const statusT   = $("#statusText");
-    const mount     = $("#mount");
-    const catBar    = $("#categoryBar");
-    const subtabs   = $("#subtabs");
-    const titleEl   = $("#contentTitle");
+    const $        = s => document.querySelector(s);
+    const statusB  = $("#statusBadge");
+    const statusT  = $("#statusText");
+    const mount    = $("#mount");
+    const catBar   = $("#categoryBar");
+    const subtabs  = $("#subtabs");
+    const titleEl  = $("#contentTitle");
 
     // ---------- Status ----------
     function setStatus(kind, text){
       statusB?.classList.remove("ok","err");
       if (kind === "ok")  statusB?.classList.add("ok");
       if (kind === "err") statusB?.classList.add("err");
-      if (statusB) statusB.textContent = (kind === "ok" ? "OK" : kind === "err" ? "Error" : "Loading…");
+      if (statusB) statusB.textContent = (kind==="ok" ? "OK" : kind==="err" ? "Error" : "Loading…");
       if (statusT) statusT.textContent = text || "";
     }
 
@@ -216,7 +239,7 @@
           } catch {}
           setStatus("", "Warming API…");
         }
-        await new Promise(r=>setTimeout(r, 4000));
+        await new Promise(r=>setTimeout(r,4000));
       }
     })();
 
