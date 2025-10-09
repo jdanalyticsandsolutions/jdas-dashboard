@@ -1,267 +1,432 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>JD Analytics &amp; Solutions — Current Events in Business</title>
+# app.py — JDAS backend (serve index.html + Dataverse API)
+import os
+import time
+from pathlib import Path
+from typing import Dict, List, Optional, Any
+from urllib.parse import urlencode
 
-  <!-- External styles -->
-  <link rel="stylesheet" href="/static/style.css?v=2025-10-08-a" />
-  <style>.hidden{display:none!important}.error{color:#ff99aa}</style>
-</head>
-<body>
-  <!-- Top Bar -->
-  <header class="appbar">
-    <div class="title">JD Analytics &amp; Solutions — Current Events in Business</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <div class="pill">Build: 2025-10-08a</div>
-      <div class="pill" id="apiPill">API: …</div>
-    </div>
-  </header>
+import httpx
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
-  <main class="container">
-    <!-- Category Tabs -->
-    <nav class="category-bar" id="categoryBar" role="tablist" aria-label="Main categories"></nav>
+# -------------------------
+# App & absolute paths
+# -------------------------
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+TEMPLATES_DIR = BASE_DIR / "templates"
 
-    <!-- Subtable Tabs (auto-rendered) -->
-    <div class="subtable-bar" id="subtabs" role="tablist" aria-label="Subtables"></div>
+app = FastAPI(title="JDAS Dataverse API", version="0.3.0")
 
-    <!-- Current selection -->
-    <section id="contentHost" class="section-host" aria-live="polite">
-      <h3 id="contentTitle" style="margin:0 0 8px;">Select a dataset</h3>
-      <div class="hint">Choose a category and dataset to load live data from Dataverse.</div>
-    </section>
+# Serve /static/* from ./static (absolute)
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-    <!-- Status -->
-    <section class="card" aria-label="Status">
-      <div class="status">
-        <span class="badge" id="statusBadge">Checking…</span>
-        <span id="statusText">Warming up API.</span>
-        <span class="hint" style="margin-left:auto">Docs: <a id="docsLink" href="#" target="_blank" rel="noopener">/docs</a></span>
-      </div>
-    </section>
+# Serve the SPA/HTML (with a fallback if index is missing)
+@app.get("/", response_class=HTMLResponse)
+def home():
+    index_path = TEMPLATES_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return HTMLResponse("<h1>JDAS</h1><p>templates/index.html not found.</p>", status_code=200)
 
-    <!-- Content stack -->
-    <div class="stack">
-      <section class="card" aria-label="Data">
-        <h2 id="cardTitle">Dataset</h2>
-        <div id="mount" class="empty">No data loaded yet.</div>
-      </section>
+# -------------------------
+# Env & constants (normalized)
+# -------------------------
+load_dotenv()
 
-      <section class="card" aria-label="Slides">
-        <h2>JDAS Charts (Google Slides)</h2>
-        <iframe
-          src="https://docs.google.com/presentation/d/e/2PACX-1vRGJlR4RGlAk94AcAzCwfCT4SoWWmQRjuLHqT7mQm-8skb7zhPzvJKyqGs60i-XT_siGPS4m_vKAHrc/embed?start=false&loop=false&delayms=3000"
-          width="100%" height="480" frameborder="0" allowfullscreen
-          style="border:0;border-radius:12px;background:#0b0f15"></iframe>
-      </section>
+# Accept either your names or the AZURE_*/DATAVERSE_API_BASE variants
+TENANT_ID     = os.getenv("TENANT_ID")      or os.getenv("AZURE_TENANT_ID")
+CLIENT_ID     = os.getenv("CLIENT_ID")      or os.getenv("AZURE_CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")  or os.getenv("AZURE_CLIENT_SECRET")
 
-      <section class="card" aria-label="Chatbot">
-        <h2>Ask JDAS (Chatbot)</h2>
-        <iframe
-          src="https://www.chatbase.co/chatbot-iframe/Vndl5JBBKFxsFxy9De-K1"
-          width="100%" height="560" frameborder="0"
-          style="border:0;border-radius:12px;background:transparent"
-          allow="clipboard-read; clipboard-write"></iframe>
-        <div class="hint">First call may take a few seconds while the API wakes.</div>
-      </section>
-    </div>
+DATAVERSE_URL = os.getenv("DATAVERSE_URL")  or os.getenv("DATAVERSE_API_BASE")
+if DATAVERSE_URL:
+    DATAVERSE_URL = DATAVERSE_URL.rstrip("/")
+ALLOW_ORIGINS = os.getenv("ALLOW_ORIGINS", "*").split(",")
 
-    <div class="spacer"></div>
-  </main>
+DATAVERSE_ENABLED = all([TENANT_ID, CLIENT_ID, CLIENT_SECRET, DATAVERSE_URL])
 
-  <!-- Auto dev/prod API base -->
-  <script>
-    window.API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
-      ? `${location.protocol}//${location.host}`
-      : "https://jdas-backend.onrender.com";
-  </script>
+TOKEN_URL = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token" if DATAVERSE_ENABLED else None
+SCOPE     = f"{DATAVERSE_URL}/.default" if DATAVERSE_ENABLED else None
+API_BASE  = f"{DATAVERSE_URL}/api/data/v9.2" if DATAVERSE_ENABLED else None
 
-  <!-- Page logic -->
-  <script>
-    // ---------- Config: categories, buttons, endpoints ----------
-    // NOTE: Ensure your app.py TABLES uses these exact paths.
-    const TABLES = {
-      trade: {
-        label: "U.S. Trade",
-        items: [
-          { key:"tradeDeficitAnnual",  label:"Trade Deficit Annual",  path:"/api/trade-deficit-annual" },
-          { key:"tariffByCountry",     label:"Tariff % by Country",   path:"/api/tariff-by-country" },   // (exists in your app.py)
-          { key:"tariffByItem",        label:"Tariff By Item",        path:"/api/tariff-by-item" },
-          { key:"tradeDeals",          label:"Trade Deals",           path:"/api/trade-deals" },
-          { key:"tariffRevenue",       label:"Tariff Revenue",        path:"/api/tariff-revenue" }
-        ]
-      },
-      kpi: {
-        label: "KPI / Key Stats",
-        items: [
-          { key:"unemploymentRate",    label:"Unemployment Rate",         path:"/api/unemployment-rate" },
-          { key:"inflationRate",       label:"Inflation Rate",            path:"/api/inflation-rate" },
-          { key:"economicIndicatorA",  label:"Economic Indicator (A)",    path:"/api/economic-indicator" },   // jdas_economicindicator
-          { key:"manufacturingPMI",    label:"Manufacturing PMI Report",  path:"/api/manufacturing-pmi-report" },
-          { key:"weeklyClaims",        label:"Weekly Claims Report",      path:"/api/weekly-claims-report" },
-          { key:"consumerConfidence",  label:"Consumer Confidence Index", path:"/api/consumer-confidence-index" },
-          { key:"treasuryYields",      label:"Treasury Yields Record",    path:"/api/treasury-yields-record" },
-          { key:"economicGrowth",      label:"Economic Growth Report",    path:"/api/economic-growth-report" },
-          { key:"economicIndicatorB",  label:"Economic Indicator (B)",    path:"/api/economic-indicator-1" }  // Jdas_economicindictator1
-        ]
-      },
-      global: {
-        label: "Global Events",
-        items: [
-          { key:"corporateSpinoff",    label:"Corporate SpinOff",         path:"/api/corporate-spinoff" },
-          { key:"conflictRecord",      label:"Conflict Record",            path:"/api/conflict-record" },
-          { key:"globalDisasters",     label:"Global Natural Disasters",   path:"/api/global-natural-disasters" }
-        ]
-      },
-      labor: {
-        label: "Labor & Society",
-        items: [
-          { key:"publicRevenueLoss",   label:"Publicly Annouced Revenue Loss", path:"/api/publicly-annouced-revenue-loss" },
-          { key:"layoffAnnouncement",  label:"Layoff Announcement",             path:"/api/layoff-announcement" },
-          { key:"acquisitionDeal",     label:"Acquisition Deal",                path:"/api/acquisition-deal" },
-          { key:"bankruptcyLog",       label:"Bankruptcy Log",                  path:"/api/bankruptcies" } // your existing path
-        ]
-      },
-      energy: {
-        label: "Environmental & Energy",
-        items: [
-          { key:"envReg",              label:"Environmental Regulation",  path:"/api/environmental-regulation" },
-          { key:"envPolicy",           label:"Environmental Policy",      path:"/api/environmental-policy" },
-          { key:"infraInvestment",     label:"Infrastructure Investment", path:"/api/infrastructure-investment" }
-        ]
-      }
-    };
+# CORS for Wix / embedded dashboards
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOW_ORIGINS if ALLOW_ORIGINS != ["*"] else ["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    // ---------- Small helpers ----------
-    const API_BASE   = window.API_BASE || `${location.protocol}//${location.host}`;
-    const $          = (s) => document.querySelector(s);
-    const apiPill    = $("#apiPill");
-    const docsLink   = $("#docsLink");
-    const contentTitle = $("#contentTitle");
-    const statusBadge  = $("#statusBadge");
-    const statusText   = $("#statusText");
-    const categoryBar  = $("#categoryBar");
-    const subtabs      = $("#subtabs");
-    const cardTitle    = $("#cardTitle");
-    const mount        = $("#mount");
+# -------------------------
+# Health & info
+# -------------------------
+@app.get("/health", summary="Simple health check")
+def health_root():
+    return {"ok": True, "dataverse": DATAVERSE_ENABLED}
 
-    if (apiPill)  apiPill.textContent = `API: ${API_BASE}`;
-    if (docsLink) docsLink.href       = `${API_BASE}/docs`;
+@app.get("/api/health", summary="Health under /api")
+def health_api():
+    return {"ok": True, "dataverse": DATAVERSE_ENABLED}
 
-    function escapeHTML(s){ return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
-    function valueToText(v){ if(v==null) return ""; if(typeof v==="object") return JSON.stringify(v); return String(v); }
-
-    function setStatus(kind, text){
-      statusBadge?.classList.remove("ok","err");
-      if(kind==="ok")  statusBadge?.classList.add("ok");
-      if(kind==="err") statusBadge?.classList.add("err");
-      statusBadge && (statusBadge.textContent = kind==="ok" ? "OK" : kind==="err" ? "Error" : "Loading…");
-      statusText && (statusText.textContent   = text);
+@app.get("/info", summary="Service info")
+def root_info():
+    return {
+        "service": "JDAS Dataverse API",
+        "docs": "/docs",
+        "health": "/health",
+        "dataverse": DATAVERSE_ENABLED,
     }
 
-    async function fetchJSON(path, { method="GET", body=null } = {}){
-      const url = `${API_BASE}${path}`;
-      const res = await fetch(url, { method, body, cache:"no-store", headers:{ "Accept":"application/json" } });
-      if(!res.ok){
-        const txt = await res.text().catch(()=> "");
-        throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${txt.slice(0,300)}`);
-      }
-      return res.json();
+# -------------------------
+# Dataverse helpers (guarded) — async httpx + caching + OData headers
+# -------------------------
+_token_cache: Dict[str, str] = {}
+_token_expiry_ts: float = 0.0
+_SKEW = 60  # seconds
+_entityset_cache: Dict[str, str] = {}  # logical -> EntitySetName
+
+def _assert_cfg():
+    if not DATAVERSE_ENABLED:
+        raise HTTPException(503, "Dataverse env not configured")
+
+async def fetch_access_token() -> str:
+    _assert_cfg()
+    data = {
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "grant_type": "client_credentials",
+        "scope": SCOPE,
+    }
+    async with httpx.AsyncClient(timeout=30) as c:
+        r = await c.post(TOKEN_URL, data=data)
+        if r.status_code != 200:
+            raise HTTPException(500, f"Token error: {r.text[:500]}")
+        j = r.json()
+        tok = j["access_token"]
+        expires_in = int(j.get("expires_in", 3600))
+        global _token_expiry_ts
+        _token_expiry_ts = time.time() + max(60, expires_in - _SKEW)
+        _token_cache["token"] = tok
+        return tok
+
+async def get_access_token() -> str:
+    _assert_cfg()
+    tok = _token_cache.get("token")
+    if not tok or time.time() >= _token_expiry_ts:
+        return await fetch_access_token()
+    return tok
+
+def build_headers(token: str) -> Dict[str, str]:
+    return {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+        "Prefer": "odata.maxpagesize=5000",
     }
 
-    function renderTable(rows){
-      if(!rows || !rows.length){
-        mount.className = "empty";
-        mount.innerHTML = "No rows found.";
-        return;
-      }
-      const cols = Array.from(rows.reduce((s,r)=>{Object.keys(r).forEach(k=>s.add(k));return s;}, new Set()));
-      const thead = `<thead><tr>${cols.map(c=>`<th>${escapeHTML(c)}</th>`).join("")}</tr></thead>`;
-      const tbody = `<tbody>${rows.map(r=>`<tr>${
-        cols.map(c=>`<td>${escapeHTML(valueToText(r[c]))}</td>`).join("")
-      }</tr>`).join("")}</tbody>`;
-      mount.className = "tablewrap";
-      mount.innerHTML = `<table>${thead}${tbody}</table>`;
-    }
+async def resolve_entity_set_from_logical(logical_name: str) -> str:
+    """
+    Optional dynamic resolution: pass logical name to get EntitySetName.
+    Caches results.
+    """
+    _assert_cfg()
+    key = logical_name.strip()
+    if key in _entityset_cache:
+        return _entityset_cache[key]
+    token = await get_access_token()
+    headers = build_headers(token)
+    url = f"{API_BASE}/EntityDefinitions(LogicalName='{key}')?$select=EntitySetName"
+    async with httpx.AsyncClient(timeout=30) as c:
+        r = await c.get(url, headers=headers)
+    if r.status_code != 200:
+        raise HTTPException(500, f"Metadata lookup failed for {key}: {r.text[:500]}")
+    entity_set = r.json().get("EntitySetName")
+    if not entity_set:
+        raise HTTPException(500, f"No EntitySetName for {key}")
+    _entityset_cache[key] = entity_set
+    return entity_set
 
-    // ---------- UI wiring ----------
-    let currentCat = null;
-    let currentItem = null;
+async def dv_paged_get(path_or_url: str) -> List[dict]:
+    _assert_cfg()
+    async def _run(url: str, headers: Dict[str, str]) -> httpx.Response:
+        async with httpx.AsyncClient(timeout=60) as c:
+            return await c.get(url, headers=headers)
 
-    function buildCategoryBar(){
-      const cats = Object.keys(TABLES);
-      categoryBar.innerHTML = cats.map((cat,i)=>{
-        const active = i===0 ? "active" : "";
-        return `<button class="nav-btn ${active}" data-cat="${cat}" role="tab" aria-selected="${i===0}">${escapeHTML(TABLES[cat].label)}</button>`;
-      }).join("");
-      currentCat = cats[0];
-    }
+    next_url = path_or_url if path_or_url.startswith("http") else f"{API_BASE}/{path_or_url}"
+    token = await get_access_token()
+    headers = build_headers(token)
+    out: List[dict] = []
 
-    function buildSubtabs(){
-      const items = TABLES[currentCat].items;
-      subtabs.innerHTML = items.map((it,i)=>{
-        const active = i===0 ? "active":"";
-        return `<button class="nav-btn ${active}" data-key="${it.key}" role="tab" aria-selected="${i===0}">${escapeHTML(it.label)}</button>`;
-      }).join("");
-      currentItem = items[0].key;
-    }
+    while True:
+        r = await _run(next_url, headers)
+        if r.status_code == 401:  # token refresh path
+            token = await fetch_access_token()
+            headers = build_headers(token)
+            r = await _run(next_url, headers)
+        if r.status_code != 200:
+            raise HTTPException(r.status_code, r.text)
 
-    async function loadCurrent(){
-      const group = TABLES[currentCat];
-      const item  = group.items.find(it=>it.key===currentItem);
-      const title = `${group.label} — ${item.label}`;
-      contentTitle.textContent = title;
-      cardTitle.textContent    = item.label;
-      try {
-        setStatus("", `Loading ${item.label}…`);
-        mount.className = "loading";
-        mount.textContent = `Loading ${item.label}…`;
-        const data = await fetchJSON(item.path);
-        renderTable(Array.isArray(data) ? data : (data?.value || []));
-        setStatus("ok", `Loaded ${item.label}.`);
-      } catch (err) {
-        mount.className = "empty";
-        mount.innerHTML = `<div class="error">Failed to load ${escapeHTML(item.label)}.</div><div class="hint">${escapeHTML(err.message)}</div>`;
-        setStatus("err", `Failed to load ${item.label}.`);
-      }
-    }
+        data = r.json()
+        out.extend(data.get("value", []))
+        next_link = data.get("@odata.nextLink")
+        if not next_link:
+            break
+        next_url = next_link
 
-    // Events
-    categoryBar.addEventListener("click", (e)=>{
-      const btn = e.target.closest("button[data-cat]");
-      if(!btn) return;
-      if(btn.dataset.cat === currentCat) return;
-      // toggle
-      [...categoryBar.querySelectorAll("button[data-cat]")].forEach(b=>b.classList.toggle("active", b===btn));
-      currentCat = btn.dataset.cat;
-      buildSubtabs();
-      loadCurrent();
-    });
+    return out
 
-    subtabs.addEventListener("click", (e)=>{
-      const btn = e.target.closest("button[data-key]");
-      if(!btn) return;
-      [...subtabs.querySelectorAll("button[data-key]")].forEach(b=>b.classList.toggle("active", b===btn));
-      currentItem = btn.dataset.key;
-      loadCurrent();
-    });
+# $select is optional — when columns are [], we skip $select and return raw rows
+def build_select(
+    entity_set: str,
+    columns: List[str],
+    orderby: Optional[str] = None,
+    top: int = 5000,
+    extra: Optional[str] = None,
+) -> str:
+    params = {"$top": str(top)}
+    if columns:
+        params["$select"] = ",".join(columns)
+    if orderby:
+        params["$orderby"] = orderby
+    qs = urlencode(params)
+    return f"{entity_set}?{qs}" + (f"&{extra}" if extra else "")
 
-    // ---------- Health warmup ----------
-    (async ()=>{
-      for(let i=0;i<6;i++){
-        try{
-          const j = await fetchJSON("/api/health");
-          if(j && j.ok){ setStatus("ok","API ready."); break; }
-        }catch{ setStatus("", "Warming API…"); }
-        await new Promise(r=>setTimeout(r,5000));
-      }
-    })();
+# -------------------------
+# TABLE CONFIG
+# Supports either:
+#   - entity_set: "cred8_bankruptcylogs"
+#   - logical:    "cred8_bankruptcylog"  (auto-resolves EntitySetName)
+# Columns can be [] while you verify actual field names.
+# -------------------------
+TABLES: List[Dict[str, Any]] = [
+    # ── U.S. Trade ────────────────────────────────────────────────────────────
+    {
+        "name": "Trade Deficit Annual",
+        "logical": "cred8_tradedeficitannual",
+        "path": "/api/trade-deficit-annual",
+        "columns": [], "map_to": [], "orderby": "cred8_year desc"
+    },
+    {
+        "name": "Tariff % by Country",
+        "logical": "cred8_tariffbycountry",
+        "path": "/api/tariff-by-country",
+        "columns": [], "map_to": [], "orderby": "cred8_country asc"
+    },
+    {
+        "name": "Tariff By Item",
+        "logical": "jdas_tariffbyitem",
+        "path": "/api/tariff-by-item",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+    {
+        "name": "Trade Deals",
+        "logical": "cred8_tradedeal",
+        "path": "/api/trade-deals",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+    {
+        "name": "Tariff Revenue",
+        "logical": "Cred8_tariffrevenue",  # NOTE: caps as provided; most logical names are lowercase
+        "path": "/api/tariff-revenue",
+        "columns": [], "map_to": [], "orderby": "cred8_month desc"
+    },
 
-    // ---------- Boot ----------
-    buildCategoryBar();
-    buildSubtabs();
-    loadCurrent();
-  </script>
-</body>
-</html>
+    # ── KPI / Key Stats ───────────────────────────────────────────────────────
+    {
+        "name": "Unemployment Rate",
+        "logical": "Cred8_unemploymentrate",  # NOTE: caps as provided
+        "path": "/api/unemployment-rate",
+        "columns": [], "map_to": [], "orderby": "cred8_month desc"
+    },
+    {
+        "name": "Inflation Rate",
+        "logical": "cred8_inflationrate",
+        "path": "/api/inflation-rate",
+        "columns": [], "map_to": [], "orderby": "cred8_month desc"
+    },
+    {
+        "name": "Economic Indicator (A)",
+        "logical": "jdas_economicindicator",     # TODO verify exact logical name if needed
+        "path": "/api/economic-indicator",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+    {
+        "name": "Manufacturing PMI Report",
+        "logical": "jdas_manufacturingpmireport",  # TODO verify
+        "path": "/api/manufacturing-pmi-report",
+        "columns": [], "map_to": [], "orderby": "jdas_month desc"
+    },
+    {
+        "name": "Weekly Claims Report",
+        "logical": "jdas_weeklyclaimsreport",    # TODO verify
+        "path": "/api/weekly-claims-report",
+        "columns": [], "map_to": [], "orderby": "jdas_weekending desc"
+    },
+    {
+        "name": "Consumer Confidence Index",
+        "logical": "jdas_consumerconfidenceindex",  # TODO verify
+        "path": "/api/consumer-confidence-index",
+        "columns": [], "map_to": [], "orderby": "jdas_month desc"
+    },
+    {
+        "name": "Treasury Yields Record",
+        "logical": "jdas_treasuryyieldrecord",   # TODO verify
+        "path": "/api/treasury-yields-record",
+        "columns": [], "map_to": [], "orderby": "jdas_month desc"
+    },
+    {
+        "name": "Economic Growth Report",
+        "logical": "jdas_economicgrowthreport",  # TODO verify
+        "path": "/api/economic-growth-report",
+        "columns": [], "map_to": [], "orderby": "jdas_quarter desc"
+    },
+    {
+        "name": "Economic Indicator (B)",
+        "logical": "jdas_economicindictator1",   # NOTE: 'indictator' spelling from source
+        "path": "/api/economic-indicator-1",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+
+    # ── Labor & Society ───────────────────────────────────────────────────────
+    {
+        "name": "Publicly Annouced Revenue Loss",
+        "logical": "Cred8_publiclyannoucedrevenueloss",  # NOTE: spelling/caps kept
+        "path": "/api/publicly-annouced-revenue-loss",
+        "columns": [], "map_to": [], "orderby": "cred8_amountloss desc"
+    },
+    {
+        "name": "Layoff Announcement",
+        "logical": "jdas_layoffannoucement",  # NOTE: missing 'n' kept
+        "path": "/api/layoff-announcement",
+        "columns": [], "map_to": [], "orderby": "jdas_announcementdate desc"
+    },
+    {
+        "name": "Acquisition Deal",
+        "logical": "jdas_acquisitiondeal",
+        "path": "/api/acquisition-deal",
+        "columns": [], "map_to": [], "orderby": "jdas_announcedate desc"
+    },
+    {
+        "name": "Bankruptcy Log",
+        "logical": "Cred8_bankruptcylog",  # NOTE: caps as provided
+        "path": "/api/bankruptcies",
+        "columns": [], "map_to": [], "orderby": "cred8_datelogged desc"
+    },
+
+    # ── Environmental & Energy ────────────────────────────────────────────────
+    {
+        "name": "Environmental Regulation",
+        "logical": "jdas_environmentalregulation",
+        "path": "/api/environmental-regulation",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+    {
+        "name": "Environmental Policy",
+        "logical": "Jdas_environmentalpolicy",  # NOTE: capital J as provided
+        "path": "/api/environmental-policy",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+    {
+        "name": "Infrastructure Investment",
+        "logical": "infrastructure_investment",  # NOTE: schema had no prefix; inferred
+        "path": "/api/infrastructure-investment",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+
+    # ── Global Events ─────────────────────────────────────────────────────────
+    {
+        "name": "Corporate SpinOff",
+        "logical": "jdas_corporatespinoff",
+        "path": "/api/corporate-spinoff",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+    {
+        "name": "Conflict Record",
+        "logical": "jdasconflictrecord",  # NOTE: no underscore per source
+        "path": "/api/conflict-record",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+    {
+        "name": "Global Natural Disasters",
+        "logical": "jdas_globalnaturaldisasters",  # source used camel; logicals typically lowercase
+        "path": "/api/global-natural-disasters",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+]
+
+# -------------------------
+# Route factory (supports entity_set OR logical; returns raw rows if no columns)
+# -------------------------
+def make_handler(entity_set: Optional[str], logical: Optional[str],
+                 cols: List[str], keys: List[str], default_order: Optional[str]):
+    _resolved_entity_set: Optional[str] = None
+
+    async def handler(
+        top: int = Query(5000, ge=1, le=50000, description="$top limit"),
+        orderby: Optional[str] = Query(None, description="Override $orderby"),
+        extra: Optional[str] = Query(None, description="Extra OData query string to append (advanced)"),
+    ):
+        _assert_cfg()
+        nonlocal _resolved_entity_set
+
+        if entity_set:
+            es = entity_set
+        else:
+            if not logical:
+                raise HTTPException(500, "No entity_set or logical provided for this endpoint")
+            if _resolved_entity_set is None:
+                _resolved_entity_set = await resolve_entity_set_from_logical(logical)
+            es = _resolved_entity_set
+
+        query = build_select(es, cols, orderby or default_order, top=top, extra=extra)
+        rows = await dv_paged_get(query)
+
+        # If columns aren't specified yet, return raw rows to aid discovery
+        if not cols:
+            return JSONResponse(content=rows)
+
+        shaped = [{k: r.get(c) for c, k in zip(cols, keys)} for r in rows]
+        return JSONResponse(content=shaped)
+
+    return handler
+
+for cfg in TABLES:
+    app.get(cfg["path"], name=cfg["name"])(
+        make_handler(
+            cfg.get("entity_set"),
+            cfg.get("logical"),
+            cfg.get("columns", []),
+            cfg.get("map_to", []),
+            cfg.get("orderby"),
+        )
+    )
+
+# -------------------------
+# Metadata & describe utilities
+# -------------------------
+@app.get("/api/metadata", summary="List available resources")
+async def list_resources():
+    return [
+        {
+            "name": t["name"],
+            "path": t["path"],
+            "entity_set": t.get("entity_set", ""),
+            "logical": t.get("logical", ""),
+            "columns": t.get("columns", []),
+            "orderby": t.get("orderby", ""),
+        }
+        for t in TABLES
+    ]
+
+@app.get("/api/describe", summary="Resolve entity set & return one sample row")
+async def describe(logical: str):
+    es = await resolve_entity_set_from_logical(logical)
+    rows = await dv_paged_get(f"{es}?$top=1")
+    return {"logical": logical, "entity_set": es, "sample": rows[:1]}
+
