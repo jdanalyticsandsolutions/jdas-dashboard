@@ -170,51 +170,142 @@ def resolve_entity_set_from_logical(logical_name: str) -> str:
     return es
 
 # ============================================================
-# TABLE CONFIG (your list preserved)
+# ============================================================
+# TABLE CONFIG (corrected logical names from your screenshots)
 # ============================================================
 TABLES: List[Dict[str, Any]] = [
     # U.S. Trade
-    {"name":"Trade Deficit Annual", "logical":"cred8_tradedeficitannual", "path":"/api/trade-deficit-annual", "columns":[], "map_to":[], "orderby":"cred8_year desc"},
-    {"name":"Tariff % by Country",  "logical":"cred8_tariffbycountry",    "path":"/api/tariff-by-country",    "columns":[], "map_to":[], "orderby":"cred8_country asc"},
-    {"name":"Tariff By Item",       "logical":"jdas_tariffbyitem",        "path":"/api/tariff-by-item",       "columns":[], "map_to":[], "orderby":""},
-    {"name":"Trade Deals",          "logical":"cred8_tradedeal",          "path":"/api/trade-deals",          "columns":[], "map_to":[], "orderby":""},
-    {"name":"Tariff Revenue",       "logical":"cred8_tariffrevenue",      "path":"/api/tariff-revenue",       "columns":[], "map_to":[], "orderby":"cred8_month desc"},
+    {"name": "Trade Deficit Annual",     "logical": "cred8_tradedeficitannual",   "path": "/api/trade-deficit-annual",   "columns": [], "map_to": [], "orderby": "cred8_year desc"},
+    {"name": "Tariff % by Country",      "logical": "cred8_tariffbycountry",      "path": "/api/tariff-by-country",      "columns": [], "map_to": [], "orderby": "cred8_country asc"},
+    {"name": "Tariff By Item",           "logical": "jdas_tariffbyitem",          "path": "/api/tariff-by-item",         "columns": [], "map_to": [], "orderby": ""},
+    {"name": "Trade Deals",              "logical": "cred8_tradedeal",            "path": "/api/trade-deals",            "columns": [], "map_to": [], "orderby": ""},
+    {"name": "Tariff Revenue",           "logical": "Cred8_tariffrevenue",        "path": "/api/tariff-revenue",         "columns": [], "map_to": [], "orderby": "cred8_month desc"},
 
-    # KPI
-    {"name":"Unemployment Rate",    "logical":"cred8_unemploymentrate",   "path":"/api/unemployment-rate",    "columns":[], "map_to":[], "orderby":"cred8_month desc"},
-    {"name":"Inflation Rate",       "logical":"cred8_inflationrate",      "path":"/api/inflation-rate",       "columns":[], "map_to":[], "orderby":"cred8_month desc"},
-    {"name":"Economic Indicator (A)","logical":"jdas_economicindicator",  "path":"/api/economic-indicator",   "columns":[], "map_to":[], "orderby":""},
-    {"name":"Manufacturing PMI Report","logical":"jdas_manufacturingpmireport","path":"/api/manufacturing-pmi-report","columns":[], "map_to":[], "orderby":"jdas_month desc"},
-    {"name":"Weekly Claims Report", "logical":"jdas_weeklyclaimsreport",  "path":"/api/weekly-claims-report", "columns":[], "map_to":[], "orderby":"jdas_weekending desc"},
-    {"name":"Consumer Confidence Index","logical":"jdas_consumerconfidenceindex","path":"/api/consumer-confidence-index","columns":[], "map_to":[], "orderby":"jdas_month desc"},
-    {"name":"Treasury Yields Record","logical":"jdas_treasuryyieldrecord","path":"/api/treasury-yields-record","columns":[], "map_to":[], "orderby":"jdas_month desc"},
-    {"name":"Economic Growth Report","logical":"jdas_economicgrowthreport","path":"/api/economic-growth-report","columns":[], "map_to":[], "orderby":"jdas_quarter desc"},
-    {"name":"Economic Indicator (B)","logical":"jdas_economicindictator1","path":"/api/economic-indicator-1", "columns":[], "map_to":[], "orderby":""},
+    # KPI / Key Stats
+    {"name": "Unemployment Rate",        "logical": "Cred8_unemploymentrate",     "path": "/api/unemployment-rate",      "columns": [], "map_to": [], "orderby": "cred8_month desc"},
+    {"name": "Inflation Rate",           "logical": "cred8_inflationrate",        "path": "/api/inflation-rate",         "columns": [], "map_to": [], "orderby": "cred8_month desc"},
+    {"name": "Economic Indicator (A)",   "logical": "jdas_economicindicator",     "path": "/api/economic-indicator",     "columns": [], "map_to": [], "orderby": ""},
+    {"name": "Manufacturing PMI Report", "logical": "jdas_manufacturingpmireport","path": "/api/manufacturing-pmi-report","columns": [], "map_to": [], "orderby": "jdas_month desc"},
+    # You showed this as **Claim Report** (weekly claims) => logical: jdas_claimreport
+    {"name": "Weekly Claims Report",     "logical": "jdas_claimreport",           "path": "/api/weekly-claims-report",   "columns": [], "map_to": [], "orderby": "jdas_weekending desc"},
+    {"name": "Consumer Confidence Index","logical": "jdas_consumerconfidenceindex","path": "/api/consumer-confidence-index","columns": [], "map_to": [], "orderby": "jdas_month desc"},
+    {"name": "Treasury Yields Record",   "logical": "jdas_treasuryyieldrecord",   "path": "/api/treasury-yields-record", "columns": [], "map_to": [], "orderby": "jdas_month desc"},
+    {"name": "Economic Growth Report",   "logical": "jdas_economicgrowthreport",  "path": "/api/economic-growth-report", "columns": [], "map_to": [], "orderby": "jdas_quarter desc"},
+    {"name": "Economic Indicator (B)",   "logical": "jdas_economicindictator1",   "path": "/api/economic-indicator-1",   "columns": [], "map_to": [], "orderby": ""},
 
     # Labor & Society
-    {"name":"Publicly Annouced Revenue Loss","logical":"cred8_publiclyannoucedrevenueloss","path":"/api/publicly-annouced-revenue-loss","columns":[], "map_to":[], "orderby":"cred8_amountloss desc"},
-    {"name":"Layoff Announcement",  "logical":"jdas_layoffannoucement",   "path":"/api/layoff-announcement",  "columns":[], "map_to":[], "orderby":"jdas_announcementdate desc"},
-    {"name":"Acquisition Deal",     "logical":"jdas_acquisitiondeal",     "path":"/api/acquisition-deal",     "columns":[], "map_to":[], "orderby":"jdas_announcedate desc"},
-    {"name":"Bankruptcy Log",       "logical":"cred8_bankruptcylog",      "path":"/api/bankruptcies",         "columns":[], "map_to":[], "orderby":"cred8_datelogged desc"},
-    {"name":"Layoffs (Tracking)",   "logical":"jdas_layoffs",             "path":"/api/layoffs",              "columns":[], "map_to":[], "orderby":"jdas_date desc"},
+    {"name": "Publicly Annouced Revenue Loss", "logical": "Cred8_publiclyannoucedrevenueloss", "path": "/api/publicly-annouced-revenue-loss", "columns": [], "map_to": [], "orderby": "cred8_amountloss desc"},
+    # Typo fixed: layoffannoucement → layoffannouncement
+    {"name": "Layoff Announcement",      "logical": "jdas_layoffannouncement",    "path": "/api/layoff-announcement",    "columns": [], "map_to": [], "orderby": "jdas_announcementdate desc"},
+    {"name": "Acquisition Deal",         "logical": "jdas_acquisitiondeal",       "path": "/api/acquisition-deal",       "columns": [], "map_to": [], "orderby": "jdas_announcedate desc"},
+    {"name": "Bankruptcy Log",           "logical": "Cred8_bankruptcylog",        "path": "/api/bankruptcies",           "columns": [], "map_to": [], "orderby": "cred8_datelogged desc"},
+    {"name": "Layoffs (Tracking)",       "logical": "jdas_layoffs",               "path": "/api/layoffs",                "columns": [], "map_to": [], "orderby": "jdas_date desc"},
 
     # Environmental & Energy
-    {"name":"Environmental Regulation","logical":"jdas_environmentalregulation","path":"/api/environmental-regulation","columns":[], "map_to":[], "orderby":""},
-    {"name":"Environmental Policy", "logical":"jdas_environmentalpolicy", "path":"/api/environmental-policy", "columns":[], "map_to":[], "orderby":""},
-
-    # !!! Verify this one — your earlier error shows the logical name is wrong.
-    # Replace 'XXXX' after you run /api/search-entities?q=infrastructure (see below).
-    {"name":"Infrastructure Investment","logical":"XXXX_replace_with_real_logical","path":"/api/infrastructure-investment","columns":[], "map_to":[], "orderby":""},
+    {"name": "Environmental Regulation", "logical": "jdas_environmentalregulation","path": "/api/environmental-regulation", "columns": [], "map_to": [], "orderby": ""},
+    {"name": "Environmental Policy",     "logical": "jdas_environmentalpolicy",   "path": "/api/environmental-policy",    "columns": [], "map_to": [], "orderby": ""},
+    # You confirmed the real logical name here:
+    {"name": "Infrastructure Investment","logical": "jdas_infrastructureinvestment","path": "/api/infrastructure-investment","columns": [], "map_to": [], "orderby": ""},
 
     # Global Events
-    {"name":"Corporate SpinOff",    "logical":"jdas_corporatespinoff",    "path":"/api/corporate-spinoff",    "columns":[], "map_to":[], "orderby":""},
-
-    # NOTE: This one may actually be 'jdas_conflictrecord' (with underscore).
-    # Use the search endpoint to confirm and update if needed.
-    {"name":"Conflict Record",      "logical":"jdasconflictrecord",       "path":"/api/conflict-record",      "columns":[], "map_to":[], "orderby":""},
-
-    {"name":"Global Natural Disasters","logical":"jdas_globalnaturaldisasters","path":"/api/global-natural-disasters","columns":[], "map_to":[], "orderby":""},
+    {"name": "Corporate SpinOff",        "logical": "jdas_corporatespinoff",      "path": "/api/corporate-spinoff",      "columns": [], "map_to": [], "orderby": ""},
+    # Underscore fixed: jdas_conflictrecord
+    {"name": "Conflict Record",          "logical": "jdas_conflictrecord",        "path": "/api/conflict-record",        "columns": [], "map_to": [], "orderby": ""},
+    {"name": "Global Natural Disasters", "logical": "jdas_globalnaturaldisasters","path": "/api/global-natural-disasters","columns": [], "map_to": [], "orderby": ""},
 ]
+
+# Cache resolved EntitySetNames so we don’t keep hitting metadata
+_entityset_cache: Dict[str, str] = {}
+
+def _ensure_entity_set(logical: str) -> str:
+    """Resolve & cache the EntitySetName for a given logical name."""
+    if logical in _entityset_cache:
+        return _entityset_cache[logical]
+    es = resolve_entity_set_from_logical(logical)
+    _entityset_cache[logical] = es
+    return es
+
+def _shape_rows(rows: List[dict], columns: Sequence[str], keys: Sequence[str]) -> List[dict]:
+    """If columns are provided, project/rename; otherwise return raw rows (discovery mode)."""
+    if not columns:
+        return rows
+    out: List[dict] = []
+    for r in rows:
+        shaped = {}
+        for c, k in zip(columns, keys or columns):
+            shaped[k or c] = r.get(c)
+        out.append(shaped)
+    return out
+
+def _make_handler(entity_set: Optional[str], logical: Optional[str],
+                  columns: Sequence[str], keys: Sequence[str],
+                  default_order: Optional[str]):
+    """Factory that returns a FastAPI view for one table."""
+    def handler(
+        top: int = Query(5000, ge=1, le=50000, description="$top limit"),
+        orderby: Optional[str] = Query(None, description="Override $orderby"),
+        extra: Optional[str] = Query(None, description="Append extra OData (advanced)"),
+    ):
+        _assert_cfg()
+        es = entity_set or _ensure_entity_set(logical or "")
+        query = build_select(es, columns, orderby or default_order, top=top, extra=extra)
+        rows = dv_paged_get(query)
+        return JSONResponse(content=_shape_rows(rows, columns, keys))
+    return handler
+
+# Wire up one GET endpoint per table
+for cfg in TABLES:
+    app.get(cfg["path"], name=cfg["name"])(
+        _make_handler(
+            cfg.get("entity_set"),
+            cfg.get("logical"),
+            cfg.get("columns", []),
+            cfg.get("map_to", []),
+            cfg.get("orderby")
+        )
+    )
+
+# ------------------------------------------------------------
+# Utility endpoints (handy for debugging + discovery)
+# ------------------------------------------------------------
+@app.get("/api/metadata", summary="List available API resources")
+def list_resources():
+    return [
+        {
+            "name": t["name"],
+            "path": t["path"],
+            "logical": t.get("logical", ""),
+            "entity_set": _entityset_cache.get(t.get("logical", ""), ""),
+            "orderby": t.get("orderby", ""),
+            "columns": t.get("columns", []),
+        }
+        for t in TABLES
+    ]
+
+@app.get("/api/describe", summary="Resolve entity set & return one sample row")
+def describe(logical: str):
+    es = _ensure_entity_set(logical)
+    rows = dv_paged_get(f"{es}?$top=1")
+    return {"logical": logical, "entity_set": es, "sample": rows[:1]}
+
+@app.get("/api/search-entities", summary="Search Dataverse entities by text")
+def search_entities(q: str):
+    """Quick helper: search metadata for logical/schema matches."""
+    _assert_cfg()
+    # Search EntityDefinitions by contains(LogicalName,'q') OR contains(SchemaName,'q')
+    # and return a few useful fields.
+    url = (
+        f"{API_BASE}/EntityDefinitions"
+        f"?$select=LogicalName,SchemaName,EntitySetName"
+        f"&$filter=contains(LogicalName,'{q}') or contains(SchemaName,'{q}')"
+        f"&$top=50"
+    )
+    with httpx.Client(timeout=30) as c:
+        r = c.get(url, headers=_dv_headers())
+    if r.status_code != 200:
+        raise HTTPException(r.status_code, r.text[:500])
+    return r.json().get("value", [])
+
 
 
 # -------------------------
@@ -260,26 +351,6 @@ for cfg in TABLES:
     )
 
 # -------------------------
-# Utility endpoints
-# -------------------------
-@app.get("/api/metadata", summary="List available resources")
-def list_resources():
-    return [
-        {
-            "name": t["name"],
-            "path": t["path"],
-            "entity_set": t.get("entity_set", ""),
-            "logical": t.get("logical", ""),
-            "columns": t.get("columns", []),
-            "orderby": t.get("orderby", ""),
-        }
-        for t in TABLES
-    ]
 
-@app.get("/api/describe", summary="Resolve entity set & return one sample row")
-def describe(logical: str):
-    es = resolve_entity_set_from_logical(logical)
-    rows = dv_paged_get(f"{es}?$top=1")
-    return {"logical": logical, "entity_set": es, "sample": rows[:1]}
 
 
