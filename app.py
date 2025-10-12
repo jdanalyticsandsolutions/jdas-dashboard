@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
-app = FastAPI(title="JDAS Dataverse API", version="0.3.0")
+app = FastAPI(title="JDAS Dataverse API", version="0.3.1")
 
 # Serve /static/* from ./static (absolute)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -37,7 +37,6 @@ def home():
 # -------------------------
 load_dotenv()
 
-# Accept either your names or the AZURE_*/DATAVERSE_API_BASE variants
 TENANT_ID     = os.getenv("TENANT_ID")      or os.getenv("AZURE_TENANT_ID")
 CLIENT_ID     = os.getenv("CLIENT_ID")      or os.getenv("AZURE_CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")  or os.getenv("AZURE_CLIENT_SECRET")
@@ -45,10 +44,10 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET")  or os.getenv("AZURE_CLIENT_SECRET")
 DATAVERSE_URL = os.getenv("DATAVERSE_URL")  or os.getenv("DATAVERSE_API_BASE")
 if DATAVERSE_URL:
     DATAVERSE_URL = DATAVERSE_URL.rstrip("/")
-ALLOW_ORIGINS = os.getenv("ALLOW_ORIGINS", "*").split(",")
+
+ALLOW_ORIGINS = [o.strip() for o in os.getenv("ALLOW_ORIGINS", "*").split(",")]
 
 DATAVERSE_ENABLED = all([TENANT_ID, CLIENT_ID, CLIENT_SECRET, DATAVERSE_URL])
-
 TOKEN_URL = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token" if DATAVERSE_ENABLED else None
 SCOPE     = f"{DATAVERSE_URL}/.default" if DATAVERSE_ENABLED else None
 API_BASE  = f"{DATAVERSE_URL}/api/data/v9.2" if DATAVERSE_ENABLED else None
@@ -81,133 +80,6 @@ def root_info():
         "health": "/health",
         "dataverse": DATAVERSE_ENABLED,
     }
-# --- add near your other imports ---
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-
-app = FastAPI()
-
-# Static + templates (adjust paths if yours differ)
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
-# ----- health (support both) -----
-@app.get("/health")
-@app.get("/api/health")
-def health():
-    return {"ok": True}
-
-# ----- home -----
-@app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-# ===== TRADE =====
-@app.get("/api/trade-deficit-annual")
-def trade_deficit_annual():
-    return []  # TODO: fill with Dataverse rows
-
-@app.get("/api/tariff-by-country")
-def tariff_by_country():
-    return []
-
-@app.get("/api/tariff-by-item")
-def tariff_by_item():
-    return []
-
-@app.get("/api/trade-deals")
-def trade_deals():
-    return []
-
-@app.get("/api/tariff-revenue")
-def tariff_revenue():
-    return []
-
-# ===== KPI =====
-@app.get("/api/unemployment-rate")
-def unemployment_rate():
-    return []
-
-@app.get("/api/inflation-rate")
-def inflation_rate():
-    return []
-
-@app.get("/api/economic-indicator")
-def economic_indicator_a():
-    return []
-
-@app.get("/api/manufacturing-pmi-report")
-def manufacturing_pmi():
-    return []
-
-@app.get("/api/weekly-claims-report")
-def weekly_claims():
-    return []
-
-@app.get("/api/consumer-confidence-index")
-def consumer_confidence():
-    return []
-
-@app.get("/api/treasury-yields-record")
-def treasury_yields():
-    return []
-
-@app.get("/api/economic-growth-report")
-def economic_growth():
-    return []
-
-@app.get("/api/economic-indicator-1")
-def economic_indicator_b():
-    return []
-
-# ===== GLOBAL =====
-@app.get("/api/corporate-spinoff")
-def corporate_spinoff():
-    return []
-
-@app.get("/api/conflict-record")
-def conflict_record():
-    return []
-
-@app.get("/api/global-natural-disasters")
-def global_disasters():
-    return []
-
-# ===== LABOR & SOCIETY =====
-@app.get("/api/publicly-annouced-revenue-loss")  # note: 'annouced' matches your front-end spelling
-def public_revenue_loss():
-    return []
-
-@app.get("/api/layoff-announcement")
-def layoff_announcement():
-    return []
-
-@app.get("/api/acquisition-deal")
-def acquisition_deal():
-    return []
-
-@app.get("/api/bankruptcies")
-def bankruptcies():
-    return []
-
-@app.get("/api/layoffs")
-def layoffs():
-    return []
-
-# ===== ENVIRONMENTAL & ENERGY =====
-@app.get("/api/environmental-regulation")
-def env_regulation():
-    return []
-
-@app.get("/api/environmental-policy")
-def env_policy():
-    return []
-
-@app.get("/api/infrastructure-investment")
-def infrastructure_investment():
-    return []
 
 # -------------------------
 # Dataverse helpers (guarded) — async httpx + caching + OData headers
@@ -223,12 +95,7 @@ def _assert_cfg():
 
 async def fetch_access_token() -> str:
     _assert_cfg()
-    data = {
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
-        "grant_type": "client_credentials",
-        "scope": SCOPE,
-    }
+    data = {"client_id": CLIENT_ID, "client_secret": CLIENT_SECRET, "grant_type": "client_credentials", "scope": SCOPE}
     async with httpx.AsyncClient(timeout=30) as c:
         r = await c.post(TOKEN_URL, data=data)
         if r.status_code != 200:
@@ -258,10 +125,7 @@ def build_headers(token: str) -> Dict[str, str]:
     }
 
 async def resolve_entity_set_from_logical(logical_name: str) -> str:
-    """
-    Optional dynamic resolution: pass logical name to get EntitySetName.
-    Caches results.
-    """
+    """Resolve EntitySetName from a logical table name (cached)."""
     _assert_cfg()
     key = logical_name.strip()
     if key in _entityset_cache:
@@ -280,42 +144,30 @@ async def resolve_entity_set_from_logical(logical_name: str) -> str:
     return entity_set
 
 async def dv_paged_get(path_or_url: str) -> List[dict]:
+    """GET with paging; accepts 'entityset?$top=..' or a full URL."""
     _assert_cfg()
-    async def _run(url: str, headers: Dict[str, str]) -> httpx.Response:
-        async with httpx.AsyncClient(timeout=60) as c:
-            return await c.get(url, headers=headers)
-
     next_url = path_or_url if path_or_url.startswith("http") else f"{API_BASE}/{path_or_url}"
     token = await get_access_token()
     headers = build_headers(token)
     out: List[dict] = []
-
-    while True:
-        r = await _run(next_url, headers)
-        if r.status_code == 401:  # token refresh path
-            token = await fetch_access_token()
-            headers = build_headers(token)
-            r = await _run(next_url, headers)
-        if r.status_code != 200:
-            raise HTTPException(r.status_code, r.text)
-
-        data = r.json()
-        out.extend(data.get("value", []))
-        next_link = data.get("@odata.nextLink")
-        if not next_link:
-            break
-        next_url = next_link
-
+    async with httpx.AsyncClient(timeout=60) as c:
+        while True:
+            r = await c.get(next_url, headers=headers)
+            if r.status_code == 401:
+                token = await fetch_access_token()
+                headers = build_headers(token)
+                r = await c.get(next_url, headers=headers)
+            if r.status_code != 200:
+                raise HTTPException(r.status_code, r.text)
+            data = r.json()
+            out.extend(data.get("value", []))
+            next_link = data.get("@odata.nextLink")
+            if not next_link:
+                break
+            next_url = next_link
     return out
 
-# $select is optional — when columns are [], we skip $select and return raw rows
-def build_select(
-    entity_set: str,
-    columns: List[str],
-    orderby: Optional[str] = None,
-    top: int = 5000,
-    extra: Optional[str] = None,
-) -> str:
+def build_select(entity_set: str, columns: List[str], orderby: Optional[str] = None, top: int = 5000, extra: Optional[str] = None) -> str:
     params = {"$top": str(top)}
     if columns:
         params["$select"] = ",".join(columns)
@@ -326,103 +178,99 @@ def build_select(
 
 # -------------------------
 # TABLE CONFIG
-# Supports either:
-#   - entity_set: "cred8_bankruptcylogs"
-#   - logical:    "cred8_bankruptcylog"  (auto-resolves EntitySetName)
-# Columns can be [] while you verify actual field names.
 # -------------------------
 TABLES: List[Dict[str, Any]] = [
-# ── U.S. Trade ────────────────────────────────────────────────────────────
-{
-    "name": "Trade Deficit Annual",
-    "logical": "cred8_tradedeficitannual",
-    "entity_set": "cred8_tradedeficitannuals",
-    "path": "/api/trade-deficit-annual",
-    "columns": [], "map_to": [], "orderby": ""
-},
-{
-    "name": "Tariff % by Country",
-    "logical": "cred8_tariffbycountry",
-    "entity_set": "cred8_tariffbycountries",   # <- irregular plural
-    "path": "/api/tariff-by-country",
-    "columns": [], "map_to": [], "orderby": ""
-},
-{
-    "name": "Tariff By Item",
-    "logical": "jdas_tariffbyitem",
-    "entity_set": "jdas_tariffbyitems",
-    "path": "/api/tariff-by-item",
-    "columns": [], "map_to": [], "orderby": ""
-},
-{
-    "name": "Trade Deals",
-    "logical": "cred8_tradedeal",
-    "entity_set": "cred8_tradedeals",
-    "path": "/api/trade-deals",
-    "columns": [], "map_to": [], "orderby": ""
-},
+    # ── U.S. Trade ────────────────────────────────────────────────────────────
     {
-    "name": "Tariff Revenue",
-    "logical": "cred8_tariffrevenue",
-    "entity_set": "cred8_tariffrevenues",      # ← verified set
-    "path": "/api/tariff-revenue",
-    "columns": [], "map_to": [], "orderby": ""
- },
+        "name": "Trade Deficit Annual",
+        "logical": "cred8_tradedeficitannual",
+        "entity_set": "cred8_tradedeficitannuals",
+        "path": "/api/trade-deficit-annual",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+    {
+        "name": "Tariff % by Country",
+        "logical": "cred8_tariffbycountry",
+        "entity_set": "cred8_tariffbycountries",
+        "path": "/api/tariff-by-country",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+    {
+        "name": "Tariff By Item",
+        "logical": "jdas_tariffbyitem",
+        "entity_set": "jdas_tariffbyitems",
+        "path": "/api/tariff-by-item",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+    {
+        "name": "Trade Deals",
+        "logical": "cred8_tradedeal",
+        "entity_set": "cred8_tradedeals",
+        "path": "/api/trade-deals",
+        "columns": [], "map_to": [], "orderby": ""
+    },
+    {
+        "name": "Tariff Revenue",
+        "logical": "cred8_tariffrevenue",
+        "entity_set": "cred8_tariffrevenues",
+        "path": "/api/tariff-revenue",
+        "columns": [], "map_to": [], "orderby": ""
+    },
 
     # ── KPI / Key Stats ───────────────────────────────────────────────────────
     {
-   "name": "Unemployment Rate",
-    "logical": "cred8_unemploymentrate",
-    "entity_set": "cred8_unemploymentrates",   # ← verified set
-    "path": "/api/unemployment-rate",
-    "columns": [], "map_to": [], "orderby": ""
+        "name": "Unemployment Rate",
+        "logical": "cred8_unemploymentrate",
+        "entity_set": "cred8_unemploymentrates",
+        "path": "/api/unemployment-rate",
+        "columns": [], "map_to": [], "orderby": ""
     },
     {
-    "name": "Inflation Rate",
-    "logical": "cred8_inflationrate",
-    "entity_set": "cred8_inflationrates",      # ← verified set
-    "path": "/api/inflation-rate",
-    "columns": [], "map_to": [], "orderby": ""
+        "name": "Inflation Rate",
+        "logical": "cred8_inflationrate",
+        "entity_set": "cred8_inflationrates",
+        "path": "/api/inflation-rate",
+        "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Economic Indicator (A)",
-        "logical": "jdas_economicindicator",     # TODO verify exact logical name if needed
+        "logical": "jdas_economicindicator",     # verify logical name
         "path": "/api/economic-indicator",
         "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Manufacturing PMI Report",
-        "logical": "jdas_manufacturingpmireport",  # TODO verify
+        "logical": "jdas_manufacturingpmireport",  # verify
         "path": "/api/manufacturing-pmi-report",
-        "columns": [], "map_to": [], "orderby": "jdas_month desc"
+        "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Weekly Claims Report",
-        "logical": "jdas_weeklyclaimsreport",    # TODO verify
+        "logical": "jdas_weeklyclaimsreport",      # verify
         "path": "/api/weekly-claims-report",
-        "columns": [], "map_to": [], "orderby": "jdas_weekending desc"
+        "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Consumer Confidence Index",
-        "logical": "jdas_consumerconfidenceindex",  # TODO verify
+        "logical": "jdas_consumerconfidenceindex", # verify
         "path": "/api/consumer-confidence-index",
-        "columns": [], "map_to": [], "orderby": "jdas_month desc"
+        "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Treasury Yields Record",
-        "logical": "jdas_treasuryyieldrecord",   # TODO verify
+        "logical": "jdas_treasuryyieldrecord",     # verify
         "path": "/api/treasury-yields-record",
-        "columns": [], "map_to": [], "orderby": "jdas_month desc"
+        "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Economic Growth Report",
-        "logical": "jdas_economicgrowthreport",  # TODO verify
+        "logical": "jdas_economicgrowthreport",    # verify
         "path": "/api/economic-growth-report",
-        "columns": [], "map_to": [], "orderby": "jdas_quarter desc"
+        "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Economic Indicator (B)",
-        "logical": "jdas_economicindictator1",   # NOTE: 'indictator' spelling from source
+        "logical": "jdas_economicindictator1",     # spelling from source
         "path": "/api/economic-indicator-1",
         "columns": [], "map_to": [], "orderby": ""
     },
@@ -430,47 +278,47 @@ TABLES: List[Dict[str, Any]] = [
     # ── Labor & Society ───────────────────────────────────────────────────────
     {
         "name": "Publicly Annouced Revenue Loss",
-        "logical": "cred8_publiclyannoucedrevenueloss",  # NOTE: spelling/caps kept
+        "logical": "cred8_publiclyannoucedrevenueloss",  # verify
         "path": "/api/publicly-annouced-revenue-loss",
-        "columns": [], "map_to": [], "orderby": "cred8_amountloss desc"
+        "columns": [], "map_to": [], "orderby": ""
     },
     {
-    "name": "Layoff Tracking",
-    "logical": "cred8_layoffannouncement",     # ← verified logical
-    "entity_set": "cred8_layoffannouncements", # ← verified set
-    "path": "/api/layoff-announcement",
-    "columns": [], "map_to": [], "orderby": ""
+        "name": "Layoff Tracking",
+        "logical": "cred8_layoffannouncement",
+        "entity_set": "cred8_layoffannouncements",
+        "path": "/api/layoff-announcement",
+        "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Acquisition Deal",
-        "logical": "jdas_acquisitiondeal",
+        "logical": "jdas_acquisitiondeal",         # verify or add entity_set if cred8_
         "path": "/api/acquisition-deal",
-        "columns": [], "map_to": [], "orderby": "jdas_announcedate desc"
+        "columns": [], "map_to": [], "orderby": ""
     },
     {
-    "name": "Bankruptcy Log",
-    "logical": "cred8_bankruptcylog",
-    "entity_set": "cred8_bankruptcylogs",      # ← verified set
-    "path": "/api/bankruptcies",
-    "columns": [], "map_to": [], "orderby": ""
+        "name": "Bankruptcy Log",
+        "logical": "cred8_bankruptcylog",
+        "entity_set": "cred8_bankruptcylogs",
+        "path": "/api/bankruptcies",
+        "columns": [], "map_to": [], "orderby": ""
     },
 
     # ── Environmental & Energy ────────────────────────────────────────────────
     {
         "name": "Environmental Regulation",
-        "logical": "jdas_environmentalregulation",
+        "logical": "jdas_environmentalregulation",  # verify
         "path": "/api/environmental-regulation",
         "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Environmental Policy",
-        "logical": "Jdas_environmentalpolicy",  # NOTE: capital J as provided
+        "logical": "Jdas_environmentalpolicy",      # verify (likely lowercase)
         "path": "/api/environmental-policy",
         "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Infrastructure Investment",
-        "logical": "infrastructure_investment",  # NOTE: schema had no prefix; inferred
+        "logical": "infrastructure_investment",     # verify
         "path": "/api/infrastructure-investment",
         "columns": [], "map_to": [], "orderby": ""
     },
@@ -478,19 +326,19 @@ TABLES: List[Dict[str, Any]] = [
     # ── Global Events ─────────────────────────────────────────────────────────
     {
         "name": "Corporate SpinOff",
-        "logical": "jdas_corporatespinoff",
+        "logical": "jdas_corporatespinoff",         # verify
         "path": "/api/corporate-spinoff",
         "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Conflict Record",
-        "logical": "jdasconflictrecord",  # NOTE: no underscore per source
+        "logical": "jdasconflictrecord",            # verify
         "path": "/api/conflict-record",
         "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Global Natural Disasters",
-        "logical": "jdas_globalnaturaldisasters",  # source used camel; logicals typically lowercase
+        "logical": "jdas_globalnaturaldisasters",   # verify
         "path": "/api/global-natural-disasters",
         "columns": [], "map_to": [], "orderby": ""
     },
@@ -520,7 +368,7 @@ def make_handler(entity_set: Optional[str], logical: Optional[str],
                 _resolved_entity_set = await resolve_entity_set_from_logical(logical)
             es = _resolved_entity_set
 
-        query = build_select(es, cols, orderby or default_order, top=top, extra=extra)
+        query = build_select(es, cols, (orderby or default_order or ""), top=top, extra=extra)
         rows = await dv_paged_get(query)
 
         # If columns aren't specified yet, return raw rows to aid discovery
