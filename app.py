@@ -358,24 +358,27 @@ TABLES: List[Dict[str, Any]] = [
         "columns": [], "map_to": [], "orderby": ""
     },
     {
-        "name": "Tariff Revenue",
-        "logical": "cred8_tariffrevenue",  # NOTE: caps as provided; most logical names are lowercase
-        "path": "/api/tariff-revenue",
-        "columns": [], "map_to": [], "orderby": "cred8_month desc"
-    },
+    "name": "Tariff Revenue",
+    "logical": "cred8_tariffrevenue",
+    "entity_set": "cred8_tariffrevenues",      # ← verified set
+    "path": "/api/tariff-revenue",
+    "columns": [], "map_to": [], "orderby": ""
+ },
 
     # ── KPI / Key Stats ───────────────────────────────────────────────────────
     {
-        "name": "Unemployment Rate",
-        "logical": "cred8_unemploymentrate",  # NOTE: caps as provided
-        "path": "/api/unemployment-rate",
-        "columns": [], "map_to": [], "orderby": "cred8_month desc"
+   "name": "Unemployment Rate",
+    "logical": "cred8_unemploymentrate",
+    "entity_set": "cred8_unemploymentrates",   # ← verified set
+    "path": "/api/unemployment-rate",
+    "columns": [], "map_to": [], "orderby": ""
     },
     {
-        "name": "Inflation Rate",
-        "logical": "cred8_inflationrate",
-        "path": "/api/inflation-rate",
-        "columns": [], "map_to": [], "orderby": "cred8_month desc"
+    "name": "Inflation Rate",
+    "logical": "cred8_inflationrate",
+    "entity_set": "cred8_inflationrates",      # ← verified set
+    "path": "/api/inflation-rate",
+    "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Economic Indicator (A)",
@@ -428,10 +431,11 @@ TABLES: List[Dict[str, Any]] = [
         "columns": [], "map_to": [], "orderby": "cred8_amountloss desc"
     },
     {
-        "name": "Layoff Announcement",
-        "logical": "jdas_layoffannoucement",  # NOTE: missing 'n' kept
-        "path": "/api/layoff-announcement",
-        "columns": [], "map_to": [], "orderby": "jdas_announcementdate desc"
+    "name": "Layoff Tracking",
+    "logical": "cred8_layoffannouncement",     # ← verified logical
+    "entity_set": "cred8_layoffannouncements", # ← verified set
+    "path": "/api/layoff-announcement",
+    "columns": [], "map_to": [], "orderby": ""
     },
     {
         "name": "Acquisition Deal",
@@ -440,10 +444,11 @@ TABLES: List[Dict[str, Any]] = [
         "columns": [], "map_to": [], "orderby": "jdas_announcedate desc"
     },
     {
-        "name": "Bankruptcy Log",
-        "logical": "cred8_bankruptcylog",  # NOTE: caps as provided
-        "path": "/api/bankruptcies",
-        "columns": [], "map_to": [], "orderby": "cred8_datelogged desc"
+    "name": "Bankruptcy Log",
+    "logical": "cred8_bankruptcylog",
+    "entity_set": "cred8_bankruptcylogs",      # ← verified set
+    "path": "/api/bankruptcies",
+    "columns": [], "map_to": [], "orderby": ""
     },
 
     # ── Environmental & Energy ────────────────────────────────────────────────
