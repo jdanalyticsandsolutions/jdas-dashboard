@@ -254,7 +254,7 @@ TABLES: List[Dict[str, Any]] = [
     # ── Environmental & Energy ────────────────────────────────────────────────
     {"name": "Environmental Regulation", "logical": "jdas_environmentalregulation",  "path": "/api/environmental-regulation", "columns": [], "map_to": [], "orderby": ""},
     {"name": "Environmental Policy",     "logical": "jdas_environmentalpolicy",      "path": "/api/environmental-policy",     "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Infrastructure Investment","logical": "infrastructure_investment",     "path": "/api/infrastructure-investment","columns": [], "map_to": [], "orderby": ""},
+    {"name": "Infrastructure Investment","logical": "jdas_infrastructure_investment",     "path": "/api/infrastructure-investment","columns": [], "map_to": [], "orderby": ""},
 
     # ── Global Events ─────────────────────────────────────────────────────────
     {"name": "Corporate SpinOff",       "logical": "jdas_corporatespinoff",         "path": "/api/corporate-spinoff",       "columns": [], "map_to": [], "orderby": ""},
