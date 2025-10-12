@@ -377,3 +377,9 @@ async def _shutdown():
             await client.aclose()
         finally:
             client = None
+@app.get("/envcheck")
+def _envcheck():
+    import os
+    keys = ['DATAVERSE_URL','TENANT_ID','CLIENT_ID','CLIENT_SECRET',
+            'AZURE_TENANT_ID','AZURE_CLIENT_ID','AZURE_CLIENT_SECRET','DATAVERSE_API_BASE']
+    return {k: bool(os.getenv(k)) for k in keys}
