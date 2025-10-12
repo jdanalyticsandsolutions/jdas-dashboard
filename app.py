@@ -247,14 +247,14 @@ TABLES: List[Dict[str, Any]] = [
 
     # ── Labor & Society ───────────────────────────────────────────────────────
     {"name": "Publicly Annouced Revenue Loss", "logical": "cred8_publiclyannoucedrevenueloss", "path": "/api/publicly-annouced-revenue-loss", "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Layoff Tracking",               "logical": "jdas_layoffannouncement",           "entity_set": "cred8_layoffannouncements",      "path": "/api/layoff-announcement",        "columns": [], "map_to": [], "orderby": ""},
+    {"name": "Layoff Tracking",               "logical": "jdas_layoffannouncement",           "entity_set": "jdas_layoffannouncements",      "path": "/api/layoffannoucement",        "columns": [], "map_to": [], "orderby": ""},
     {"name": "Acquisition Deal",              "logical": "jdas_acquisitiondeal",               "path": "/api/acquisition-deal",               "columns": [], "map_to": [], "orderby": ""},
     {"name": "Bankruptcy Log",                "logical": "cred8_bankruptcylog",                "entity_set": "cred8_bankruptcylogs",           "path": "/api/bankruptcies",               "columns": [], "map_to": [], "orderby": ""},
 
     # ── Environmental & Energy ────────────────────────────────────────────────
     {"name": "Environmental Regulation", "logical": "jdas_environmentalregulation",  "path": "/api/environmental-regulation", "columns": [], "map_to": [], "orderby": ""},
     {"name": "Environmental Policy",     "logical": "jdas_environmentalpolicy",      "path": "/api/environmental-policy",     "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Infrastructure Investment","logical": "jdas_infrastructure_investment",     "path": "/api/infrastructure-investment","columns": [], "map_to": [], "orderby": ""},
+    {"name": "Infrastructure Investment","logical": "jdas_infrastructureinvestment",     "path": "/api/infrastructure-investment","columns": [], "map_to": [], "orderby": ""},
 
     # ── Global Events ─────────────────────────────────────────────────────────
     {"name": "Corporate SpinOff",       "logical": "jdas_corporatespinoff",         "path": "/api/corporate-spinoff",       "columns": [], "map_to": [], "orderby": ""},
@@ -386,4 +386,6 @@ def _envcheck():
     ]
     # Only booleans — no secrets returned
     return {k: bool(os.getenv(k)) for k in keys}
+
+
 
