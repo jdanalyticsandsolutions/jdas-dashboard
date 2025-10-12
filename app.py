@@ -230,7 +230,7 @@ TABLES: List[Dict[str, Any]] = [
     # ── U.S. Trade ────────────────────────────────────────────────────────────
     {"name": "Trade Deficit Annual", "logical": "cred8_tradedeficitannual", "entity_set": "cred8_tradedeficitannuals", "path": "/api/trade-deficit-annual", "columns": [], "map_to": [], "orderby": ""},
     {"name": "Tariff % by Country",  "logical": "cred8_tariffbycountry",    "entity_set": "cred8_tariffbycountries",   "path": "/api/tariff-by-country",   "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Tariff By Item",       "logical": "jdas_tariffbyitem",        "entity_set": "jdas_tariffbyitems",        "path": "/api/tariff-by-item",      "columns": [], "map_to": [], "orderby": ""},
+    {"name": "Tariff By Item",       "logical": "jdas_tariffschedule",        "entity_set": "jdas_tariffbyitems",        "path": "/api/tariff-by-item",      "columns": [], "map_to": [], "orderby": ""},
     {"name": "Trade Deals",          "logical": "cred8_tradedeal",          "entity_set": "cred8_tradedeals",          "path": "/api/trade-deals",         "columns": [], "map_to": [], "orderby": ""},
     {"name": "Tariff Revenue",       "logical": "cred8_tariffrevenue",      "entity_set": "cred8_tariffrevenues",      "path": "/api/tariff-revenue",      "columns": [], "map_to": [], "orderby": ""},
 
@@ -247,18 +247,18 @@ TABLES: List[Dict[str, Any]] = [
 
     # ── Labor & Society ───────────────────────────────────────────────────────
     {"name": "Publicly Annouced Revenue Loss", "logical": "cred8_publiclyannoucedrevenueloss", "path": "/api/publicly-annouced-revenue-loss", "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Layoff Tracking",               "logical": "cred8_layoffannouncement",           "entity_set": "cred8_layoffannouncements",      "path": "/api/layoff-announcement",        "columns": [], "map_to": [], "orderby": ""},
+    {"name": "Layoff Tracking",               "logical": "jdas_layoffannouncement",           "entity_set": "cred8_layoffannouncements",      "path": "/api/layoff-announcement",        "columns": [], "map_to": [], "orderby": ""},
     {"name": "Acquisition Deal",              "logical": "jdas_acquisitiondeal",               "path": "/api/acquisition-deal",               "columns": [], "map_to": [], "orderby": ""},
     {"name": "Bankruptcy Log",                "logical": "cred8_bankruptcylog",                "entity_set": "cred8_bankruptcylogs",           "path": "/api/bankruptcies",               "columns": [], "map_to": [], "orderby": ""},
 
     # ── Environmental & Energy ────────────────────────────────────────────────
     {"name": "Environmental Regulation", "logical": "jdas_environmentalregulation",  "path": "/api/environmental-regulation", "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Environmental Policy",     "logical": "Jdas_environmentalpolicy",      "path": "/api/environmental-policy",     "columns": [], "map_to": [], "orderby": ""},
+    {"name": "Environmental Policy",     "logical": "jdas_environmentalpolicy",      "path": "/api/environmental-policy",     "columns": [], "map_to": [], "orderby": ""},
     {"name": "Infrastructure Investment","logical": "infrastructure_investment",     "path": "/api/infrastructure-investment","columns": [], "map_to": [], "orderby": ""},
 
     # ── Global Events ─────────────────────────────────────────────────────────
     {"name": "Corporate SpinOff",       "logical": "jdas_corporatespinoff",         "path": "/api/corporate-spinoff",       "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Conflict Record",         "logical": "jdasconflictrecord",            "path": "/api/conflict-record",         "columns": [], "map_to": [], "orderby": ""},
+    {"name": "Conflict Record",         "logical": "jdas_conflictrecord",            "path": "/api/conflict-record",         "columns": [], "map_to": [], "orderby": ""},
     {"name": "Global Natural Disasters","logical": "jdas_globalnaturaldisasters",   "path": "/api/global-natural-disasters", "columns": [], "map_to": [], "orderby": ""},
 ]
 
@@ -380,6 +380,10 @@ async def _shutdown():
 @app.get("/envcheck")
 def _envcheck():
     import os
-    keys = ['DATAVERSE_URL','TENANT_ID','CLIENT_ID','CLIENT_SECRET',
-            'AZURE_TENANT_ID','AZURE_CLIENT_ID','AZURE_CLIENT_SECRET','DATAVERSE_API_BASE']
+    keys = [
+        "DATAVERSE_URL","TENANT_ID","CLIENT_ID","CLIENT_SECRET",
+        "AZURE_TENANT_ID","AZURE_CLIENT_ID","AZURE_CLIENT_SECRET","DATAVERSE_API_BASE"
+    ]
+    # Only booleans — no secrets returned
     return {k: bool(os.getenv(k)) for k in keys}
+
