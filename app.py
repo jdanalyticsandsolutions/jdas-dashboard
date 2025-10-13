@@ -243,15 +243,13 @@ TABLES: List[Dict[str, Any]] = [
 
     },
     {
-{
-    "name": "Tariff % by Country",
-    "logical": "cred8_tariffbycountry",
-    "path": "/api/tariff-by-country",
-    "columns": ["cred8_country", "cred8_tariffrateasofaug1"],
-    "map_to": ["Country", "Tariff Rates as of Aug 1"],
-    "orderby": "cred8_country asc"
-},
-
+        "name": "Tariff % by Country",
+        "logical": "cred8_tariffbycountry",
+        "entity_set": "cred8_tariffbycountries",
+        "path": "/api/tariff-by-country",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
     },
     {
         "name": "Tariff By Item",
@@ -569,4 +567,3 @@ def _envcheck():
     ]
     # Only booleans — no secrets returned
     return {k: bool(os.getenv(k)) for k in keys}
-
