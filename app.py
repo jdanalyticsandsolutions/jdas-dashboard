@@ -308,9 +308,9 @@ TABLES: List[Dict[str, Any]] = [
         "logical": "cred8_unemploymentrate",
         "entity_set": "cred8_unemploymentrates",
         "path": "/api/unemployment-rate",
-        "columns": [],
-        "map_to": [],
-        "orderby": ""
+        "columns": ["cred8_month", "cred8_unemploymentrate"],
+        "map_to": ["Month",       "UnemploymentRate"],
+        "orderby": "jdas_sortorder asc, cred8_month asc"
     },
     {
         "name": "Inflation Rate",
