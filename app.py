@@ -253,8 +253,8 @@ TABLES: List[Dict[str, Any]] = [
     },
 {
     "name": "Tariff By Item",
-    "logical": "jdas_tariffbyitem",
-    "entity_set": "jdas_tariffbyitems",
+    "logical": "jdas_tariffschedule",
+    "entity_set": "jdas_tariffschedules",
     "path": "/api/tariff-by-item",
     "columns": [
         "jdas_productcategory",
@@ -292,15 +292,15 @@ TABLES: List[Dict[str, Any]] = [
     "orderby": "cred8_countries asc"
 },
 
-    {
-        "name": "Tariff Revenue",
-        "logical": "cred8_tariffrevenue",
-        "entity_set": "cred8_tariffrevenues",
-        "path": "/api/tariff-revenue",
-        "columns": [],
-        "map_to": [],
-        "orderby": ""
-    },
+ {
+    "name": "Tariff Revenue",
+    "logical": "cred8_tariffrevenue",
+    "entity_set": "cred8_tariffrevenues",   # keep if you already have it
+    "path": "/api/tariff-revenue",
+    "columns": ["cred8_month", "cred8_revenueamountbillionusd"],
+    "map_to":  ["Month",      "RevenueAmountBillionUSD"],
+    "orderby": "jdas_sortorder asc"
+},
 
     # ── KPI / Key Stats ───────────────────────────────────────────────────────
     {
