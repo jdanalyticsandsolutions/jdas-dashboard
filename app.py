@@ -230,7 +230,7 @@ TABLES: List[Dict[str, Any]] = [
     # ── U.S. Trade ────────────────────────────────────────────────────────────
     {"name": "Trade Deficit Annual", "logical": "cred8_tradedeficitannual", "entity_set": "cred8_tradedeficitannuals", "path": "/api/trade-deficit-annual", "columns": [], "map_to": [], "orderby": ""},
     {"name": "Tariff % by Country",  "logical": "cred8_tariffbycountry",    "entity_set": "cred8_tariffbycountries",   "path": "/api/tariff-by-country",   "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Tariff By Item",       "logical": "jdas_tariffschedule",        "entity_set": "jdas_tariffbyitems",        "path": "/api/tariff-by-item",      "columns": [], "map_to": [], "orderby": ""},
+    {"name": "Tariff By Item",       "logical": "jdas_tariffschedule",        "entity_set": "jdas_tariffschedules",        "path": "/api/tariff-by-item",      "columns": [], "map_to": [], "orderby": ""},
     {"name": "Trade Deals",          "logical": "cred8_tradedeal",          "entity_set": "cred8_tradedeals",          "path": "/api/trade-deals",         "columns": [], "map_to": [], "orderby": ""},
     {"name": "Tariff Revenue",       "logical": "cred8_tariffrevenue",      "entity_set": "cred8_tariffrevenues",      "path": "/api/tariff-revenue",      "columns": [], "map_to": [], "orderby": ""},
 
