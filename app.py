@@ -254,6 +254,7 @@ TABLES: List[Dict[str, Any]] = [
 {
     "name": "Tariff By Item",
     "logical": "jdas_tariffbyitem",
+    "entity_set": "jdas_tariffbyitems",
     "path": "/api/tariff-by-item",
     "columns": [
         "jdas_productcategory",
