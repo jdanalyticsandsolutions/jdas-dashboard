@@ -272,17 +272,26 @@ TABLES: List[Dict[str, Any]] = [
         "Tariff Effective Date",
         "Additional Notes"
     ],
-    "orderby": "jdas_productcategory asc"
+    "orderby": ""
 },
 {
-        "name": "Trade Deals",
-        "logical": "cred8_tradedeal",
-        "entity_set": "cred8_tradedeals",
-        "path": "/api/trade-deals",
-        "columns": [],
-        "map_to": [],
-        "orderby": ""
-    },
+    "name": "Trade Deals",
+    "logical": "cred8_tradedeal",
+    "entity_set": "cred8_tradedeals",
+    "path": "/api/trade-deals",
+    "columns": [
+        "cred8_countries",
+        "cred8_impact",
+        "cred8_notes"
+    ],
+    "map_to": [
+        "Countries",
+        "Impact",
+        "Notes"
+    ],
+    "orderby": "cred8_countries asc"
+},
+
     {
         "name": "Tariff Revenue",
         "logical": "cred8_tariffrevenue",
