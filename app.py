@@ -247,7 +247,7 @@ TABLES: List[Dict[str, Any]] = [
 
     # ── Labor & Society ───────────────────────────────────────────────────────
     {"name": "Publicly Annouced Revenue Loss", "logical": "cred8_publiclyannoucedrevenueloss", "path": "/api/publicly-annouced-revenue-loss", "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Layoff Announcement",               "logical": "jdas_layoffannouncement",           "entity_set": "jdas_layoffannouncements",      "path": "/api/layoffannoucement",        "columns": [], "map_to": [], "orderby": ""},
+    {"name": "Layoff Announcement",               "logical": "jdas_layoffannouncement",           "entity_set": "jdas_layoffannouncements",      "path": "/api/layoffs",        "columns": [], "map_to": [], "orderby": ""},
     {"name": "Acquisition Deal",              "logical": "jdas_acquisitiondeal",               "path": "/api/acquisition-deal",               "columns": [], "map_to": [], "orderby": ""},
     {"name": "Bankruptcy Log",                "logical": "cred8_bankruptcylog",                "entity_set": "cred8_bankruptcylogs",           "path": "/api/bankruptcies",               "columns": [], "map_to": [], "orderby": ""},
 
