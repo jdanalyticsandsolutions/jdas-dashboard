@@ -239,7 +239,8 @@ TABLES: List[Dict[str, Any]] = [
         # Fill these with the exact logical column names you want to expose:
         "columns": ["jdas_month", "cred8_chatgpt"],   # ← Month, Total Deficit
         "map_to":  ["Month", "Total Deficit"],
-        "orderby": "jdas_month desc"
+        "orderby": "jdas_sortorder asc"
+
     },
     {
         "name": "Tariff % by Country",
