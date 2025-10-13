@@ -228,13 +228,17 @@ def build_select(entity_set: str, columns: List[str], orderby: Optional[str] = N
 # -------------------------
 # TABLE CONFIG
 # -------------------------
-TABLES: List:
+from typing import Dict, Any, List  # (safe even if already imported)
+
+TABLES: List[Dict[str, Any]] = [
+    # ── U.S. Trade ────────────────────────────────────────────────────────────
     {
         "name": "Trade Deficit Annual",
         "logical": "cred8_tradedeficitannual",
         "path": "/api/trade-deficit-annual",
-        "columns": ["jdas_month", "cred8_chatgpt"],
-        "map_to": ["Month", "Total Deficit"],
+        # Fill these with the exact logical column names you want to expose:
+        "columns": ["jdas_month", "cred8_chatgpt"],   # ← Month, Total Deficit
+        "map_to":  ["Month", "Total Deficit"],
         "orderby": "jdas_month desc"
     },
     {
@@ -248,49 +252,200 @@ TABLES: List:
     },
     {
         "name": "Tariff By Item",
-        "logical": "jdas_tariffschedule",
-        "entity_set": "jdas_tariffschedules",
+        "logical": "jdas_tariffschedule",     # confirm logical name
+        "entity_set": "jdas_tariffschedules", # confirm entity set
         "path": "/api/tariff-by-item",
         "columns": [],
         "map_to": [],
         "orderby": ""
     },
-
-    {"name": "Trade Deals",          "logical": "cred8_tradedeal",          "entity_set": "cred8_tradedeals",          "path": "/api/trade-deals",         "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Tariff Revenue",       "logical": "cred8_tariffrevenue",      "entity_set": "cred8_tariffrevenues",      "path": "/api/tariff-revenue",      "columns": [], "map_to": [], "orderby": ""},
+    {
+        "name": "Trade Deals",
+        "logical": "cred8_tradedeal",
+        "entity_set": "cred8_tradedeals",
+        "path": "/api/trade-deals",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Tariff Revenue",
+        "logical": "cred8_tariffrevenue",
+        "entity_set": "cred8_tariffrevenues",
+        "path": "/api/tariff-revenue",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
 
     # ── KPI / Key Stats ───────────────────────────────────────────────────────
-    {"name": "Unemployment Rate",           "logical": "cred8_unemploymentrate",       "entity_set": "cred8_unemploymentrates",     "path": "/api/unemployment-rate",         "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Inflation Rate",              "logical": "cred8_inflationrate",          "entity_set": "cred8_inflationrates",        "path": "/api/inflation-rate",            "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Economic Indicator (A)",      "logical": "jdas_economicindicator",       "path": "/api/economic-indicator",           "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Manufacturing PMI Report",    "logical": "jdas_manufacturingpmireport",  "path": "/api/manufacturing-pmi-report",     "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Weekly Claims Report",        "logical": "jdas_weeklyclaimsreport",      "path": "/api/weekly-claims-report",         "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Consumer Confidence Index",   "logical": "jdas_consumerconfidenceindex", "path": "/api/consumer-confidence-index",     "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Treasury Yields Record",      "logical": "jdas_treasuryyieldrecord",     "path": "/api/treasury-yields-record",        "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Economic Growth Report",      "logical": "jdas_economicgrowthreport",    "path": "/api/economic-growth-report",        "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Economic Indicator (B)",      "logical": "jdas_economicindictator1",     "path": "/api/economic-indicator-1",          "columns": [], "map_to": [], "orderby": ""},
+    {
+        "name": "Unemployment Rate",
+        "logical": "cred8_unemploymentrate",
+        "entity_set": "cred8_unemploymentrates",
+        "path": "/api/unemployment-rate",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Inflation Rate",
+        "logical": "cred8_inflationrate",
+        "entity_set": "cred8_inflationrates",
+        "path": "/api/inflation-rate",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Economic Indicator (A)",
+        "logical": "jdas_economicindicator",
+        "path": "/api/economic-indicator",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Manufacturing PMI Report",
+        "logical": "jdas_manufacturingpmireport",
+        "path": "/api/manufacturing-pmi-report",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Weekly Claims Report",
+        "logical": "jdas_weeklyclaimsreport",
+        "path": "/api/weekly-claims-report",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Consumer Confidence Index",
+        "logical": "jdas_consumerconfidenceindex",
+        "path": "/api/consumer-confidence-index",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Treasury Yields Record",
+        "logical": "jdas_treasuryyieldrecord",
+        "path": "/api/treasury-yields-record",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Economic Growth Report",
+        "logical": "jdas_economicgrowthreport",
+        "path": "/api/economic-growth-report",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Economic Indicator (B)",
+        "logical": "jdas_economicindicator1",  # fixed spelling from "indictator"
+        "path": "/api/economic-indicator-1",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
 
     # ── Labor & Society ───────────────────────────────────────────────────────
-    {"name": "Publicly Annouced Revenue Loss", "logical": "cred8_publiclyannoucedrevenueloss", "path": "/api/publicly-annouced-revenue-loss", "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Layoff Announcement",               "logical": "jdas_layoffannouncement",           "entity_set": "jdas_layoffannouncements",      "path": "/api/layoffs",        "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Acquisition Deal",              "logical": "jdas_acquisitiondeal",               "path": "/api/acquisition-deal",               "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Bankruptcy Log",                "logical": "cred8_bankruptcylog",                "entity_set": "cred8_bankruptcylogs",           "path": "/api/bankruptcies",               "columns": [], "map_to": [], "orderby": ""},
+    {
+        "name": "Publicly Announced Revenue Loss",
+        "logical": "cred8_publiclyannoucedrevenueloss",  # keep your exact logical name
+        "path": "/api/publicly-annouced-revenue-loss",   # route spelling matches existing
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Layoff Tracking",
+        "logical": "jdas_layofftracking",   # ← confirm actual logical name
+        "path": "/api/layoffs",             # keep the working path used by your card
+        "columns": [],
+        "map_to": [],
+        "orderby": "createdon desc"
+    },
+    {
+        "name": "Acquisition Deal",
+        "logical": "jdas_acquisitiondeal",
+        "path": "/api/acquisition-deal",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Bankruptcy Log",
+        "logical": "cred8_bankruptcylog",
+        "entity_set": "cred8_bankruptcylogs",
+        "path": "/api/bankruptcies",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
 
     # ── Environmental & Energy ────────────────────────────────────────────────
-    {"name": "Environmental Regulation", "logical": "jdas_environmentalregulation",  "path": "/api/environmental-regulation", "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Environmental Policy",     "logical": "jdas_environmentalpolicy",      "path": "/api/environmental-policy",     "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Infrastructure Investment","logical": "jdas_infrastructureinvestment",     "path": "/api/infrastructure-investment","columns": [], "map_to": [], "orderby": ""},
+    {
+        "name": "Environmental Regulation",
+        "logical": "jdas_environmentalregulation",
+        "path": "/api/environmental-regulation",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Environmental Policy",
+        "logical": "jdas_environmentalpolicy",
+        "path": "/api/environmental-policy",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Infrastructure Investment",
+        "logical": "jdas_infrastructureinvestment",
+        "path": "/api/infrastructure-investment",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
 
     # ── Global Events ─────────────────────────────────────────────────────────
-    {"name": "Corporate SpinOff",       "logical": "jdas_corporatespinoff",         "path": "/api/corporate-spinoff",       "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Conflict Record",         "logical": "jdas_conflictrecord",            "path": "/api/conflict-record",         "columns": [], "map_to": [], "orderby": ""},
-    {"name": "Global Natural Disasters","logical": "jdas_globalnaturaldisasters",   "path": "/api/global-natural-disasters", "columns": [], "map_to": [], "orderby": ""},
+    {
+        "name": "Corporate SpinOff",
+        "logical": "jdas_corporatespinoff",
+        "path": "/api/corporate-spinoff",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Conflict Record",
+        "logical": "jdas_conflictrecord",
+        "path": "/api/conflict-record",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
+    {
+        "name": "Global Natural Disasters",
+        "logical": "jdas_globalnaturaldisasters",
+        "path": "/api/global-natural-disasters",
+        "columns": [],
+        "map_to": [],
+        "orderby": ""
+    },
 ]
 
 TABLE_BY_PATH = {t["path"]: t for t in TABLES}
-
 # -------------------------
 # Cache + fetch wrapper per table (prevents 503 surfacing)
+
 # -------------------------
 async def get_table_data(es_or_logical: Dict[str, Any], top: int, orderby: Optional[str], extra: Optional[str], return_raw: bool, cols: List[str], keys: List[str]):
     # Pick explicit entity_set if supplied, else resolve logical
