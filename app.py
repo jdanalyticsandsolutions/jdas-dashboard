@@ -251,16 +251,29 @@ TABLES: List[Dict[str, Any]] = [
         "map_to": ["Country", "Tariff Rates as of Aug 1"],
         "orderby": "cred8_country asc"
     },
-    {
-        "name": "Tariff By Item",
-        "logical": "jdas_tariffschedule",     # confirm logical name
-        "entity_set": "jdas_tariffschedules", # confirm entity set
-        "path": "/api/tariff-by-item",
-        "columns": [jdas_productcategory","jdas_totaltariffpercentage","jdas_additionaltariffpercentage","jdas_tariffreasonorprogram","jdas_tariffeffectivedate","jdas_additionalnotes"],
-        "map_to": ["Product Category","Total Tariff Percentage","Additional Tariff Percentage","Tariff Reason or Program","Tariff Effective Date","Additional Notes"],
-        "orderby": "jdas_productcategory asc"
-    },
-    {
+{
+    "name": "Tariff By Item",
+    "logical": "jdas_tariffbyitem",
+    "path": "/api/tariff-by-item",
+    "columns": [
+        "jdas_productcategory",
+        "jdas_totaltariffpercentage",
+        "jdas_additionaltariffpercentage",
+        "jdas_tariffreasonorprogram",
+        "jdas_tariffeffectivedate",
+        "jdas_additionalnotes"
+    ],
+    "map_to": [
+        "Product Category",
+        "Total Tariff Percentage",
+        "Additional Tariff Percentage",
+        "Tariff Reason or Program",
+        "Tariff Effective Date",
+        "Additional Notes"
+    ],
+    "orderby": "jdas_productcategory asc"
+},
+{
         "name": "Trade Deals",
         "logical": "cred8_tradedeal",
         "entity_set": "cred8_tradedeals",
