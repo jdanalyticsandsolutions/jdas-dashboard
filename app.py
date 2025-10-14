@@ -322,15 +322,6 @@ TABLES: List[Dict[str, Any]] = [
         "map_to": ["Month","CPI %"],
         "orderby": "cred8_sortorder asc"
     },
-    },
-    {
-        "name": "Economic Indicator (A)",
-        "logical": "jdas_economicindicator",
-        "path": "/api/economic-indicator",
-        "columns": [],
-        "map_to": [],
-        "orderby": ""
-    },
     {
         "name": "Manufacturing PMI Report",
         "logical": "jdas_manufacturingpmireport",
