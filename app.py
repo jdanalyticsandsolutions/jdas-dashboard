@@ -313,13 +313,15 @@ TABLES: List[Dict[str, Any]] = [
         "orderby": "jdas_sortorder asc, cred8_month asc"
     },
     {
+    {
         "name": "Inflation Rate",
         "logical": "cred8_inflationrate",
         "entity_set": "cred8_inflationrates",
         "path": "/api/inflation-rate",
-        "columns": [],
-        "map_to": [],
-        "orderby": ""
+        "columns": ["cred8_month", "cred8_cpi"],
+        "map_to": ["Month","CPI %"],
+        "orderby": "cred8_sortorder asc"
+    },
     },
     {
         "name": "Economic Indicator (A)",
