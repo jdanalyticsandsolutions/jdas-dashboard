@@ -319,7 +319,7 @@ TABLES: List[Dict[str, Any]] = [
         "path": "/api/inflation-rate",
         "columns": ["cred8_month", "cred8_cpi"],
         "map_to": ["Month","CPI %"],
-        "orderby": "jdaS_sortorder asc"
+        "orderby": "jdas_sortorder asc"
     },
     {
         "name": "Manufacturing PMI Report",
@@ -349,25 +349,9 @@ TABLES: List[Dict[str, Any]] = [
         "name": "Treasury Yields Record",
         "logical": "jdas_treasuryyieldrecord",
         "path": "/api/treasury-yields-record",
-        "columns": [],
-        "map_to": [],
-        "orderby": ""
-    },
-    {
-        "name": "Economic Growth Report",
-        "logical": "jdas_economicgrowthreport",
-        "path": "/api/economic-growth-report",
-        "columns": [],
-        "map_to": [],
-        "orderby": ""
-    },
-    {
-        "name": "Economic Indicator (B)",
-        "logical": "jdas_economicindicator1",  # fixed spelling from "indictator"
-        "path": "/api/economic-indicator-1",
-        "columns": [],
-        "map_to": [],
-        "orderby": ""
+        "columns": ["jdas_month", "jdas_5yeartreasuryyield"],
+        "map_to": ["Month", "5-Year Treasury Yield"],
+        "orderby": "jdas_sortorder asc"
     },
 
     # ── Labor & Society ───────────────────────────────────────────────────────
