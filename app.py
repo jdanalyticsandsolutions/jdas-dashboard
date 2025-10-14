@@ -319,7 +319,7 @@ TABLES: List[Dict[str, Any]] = [
         "path": "/api/inflation-rate",
         "columns": ["cred8_month", "cred8_cpi"],
         "map_to": ["Month","CPI %"],
-        "orderby": "cred8_sortorder asc"
+        "orderby": "jdaS_sortorder asc"
     },
     {
         "name": "Manufacturing PMI Report",
@@ -333,17 +333,17 @@ TABLES: List[Dict[str, Any]] = [
         "name": "Weekly Claims Report",
         "logical": "jdas_weeklyclaimsreport",
         "path": "/api/weekly-claims-report",
-        "columns": [],
-        "map_to": [],
-        "orderby": ""
+        "columns": ["jdas_month", "jdas_ccivalue"],
+        "map_to": ["Month", "Conference Board CCI"],
+        "orderby": "jdas_month asc"
     },
     {
         "name": "Consumer Confidence Index",
         "logical": "jdas_consumerconfidenceindex",
         "path": "/api/consumer-confidence-index",
-        "columns": [],
-        "map_to": [],
-        "orderby": ""
+        "columns": ["jdas_month", "jdas_ccivalue"],
+        "map_to": ["Month", "Conference Board CCI"],
+        "orderby": "jdas_month asc"
     },
     {
         "name": "Treasury Yields Record",
