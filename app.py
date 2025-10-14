@@ -313,7 +313,6 @@ TABLES: List[Dict[str, Any]] = [
         "orderby": "jdas_sortorder asc, cred8_month asc"
     },
     {
-    {
         "name": "Inflation Rate",
         "logical": "cred8_inflationrate",
         "entity_set": "cred8_inflationrates",
