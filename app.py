@@ -326,9 +326,9 @@ TABLES: List[Dict[str, Any]] = [
         "name": "Manufacturing PMI Report",
         "logical": "jdas_manufacturingpmireport",
         "path": "/api/manufacturing-pmi-report",
-        "columns": [],
-        "map_to": [],
-        "orderby": ""
+        "columns": ["jdas_month", "jdas_ismmanufacturingpmi"],
+        "map_to": ["Month (2025)", "ISM Manufacturing PMI"],
+        "orderby": "jdas_sortorder asc"
     },
     {
         "name": "Weekly Claims Report",
