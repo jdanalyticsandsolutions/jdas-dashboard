@@ -154,20 +154,47 @@
     function escapeHTML(s){ return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
     function valueToText(v){ if (v==null) return ""; if (typeof v==="object") return JSON.stringify(v); return String(v); }
 
-    function renderTable(rows){
-      if (!Array.isArray(rows) || rows.length === 0){
-        mount.className = "empty";
-        mount.textContent = "No rows found.";
-        return;
-      }
-      const cols = Array.from(rows.reduce((s,r)=>{Object.keys(r||{}).forEach(k=>s.add(k)); return s;}, new Set()));
-      const thead = `<thead><tr>${cols.map(c=>`<th>${escapeHTML(c)}</th>`).join("")}</tr></thead>`;
-      const tbody = `<tbody>${rows.map(r=>`<tr>${
-        cols.map(c=>`<td>${escapeHTML(valueToText(r[c]))}</td>`).join("")
-      }</tr>`).join("")}</tbody>`;
-      mount.className = "tablewrap";
-      mount.innerHTML = `<table>${thead}${tbody}</table>`;
-    }
+    function renderTable(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    mount.className = "empty";
+    mount.textContent = "No rows found.";
+    return;
+  }
+
+  const cols = Array.from(
+    rows.reduce((s, r) => {
+      Object.keys(r || {}).forEach(k => s.add(k));
+      return s;
+    }, new Set())
+  );
+
+  // Build table HTML with conditional formatting
+  const thead = `<thead><tr>${cols.map(c => `<th>${escapeHTML(c)}</th>`).join("")}</tr></thead>`;
+
+  const tbody = rows
+    .map(row => {
+      return `<tr>${cols
+        .map(c => {
+          let val = row[c];
+
+          // ✅ Format only for Tariff % by Country table
+          if (
+            currentKey === "tariffByCountry" &&
+            c === "cred8_tariffrateasofaug1" &&
+            !isNaN(parseFloat(val))
+          ) {
+            val = (parseFloat(val) * 100).toFixed(2) + "%";
+          }
+
+          return `<td>${escapeHTML(valueToText(val))}</td>`;
+        })
+        .join("")}</tr>`;
+    })
+    .join("");
+
+  mount.className = "tablewrap";
+  mount.innerHTML = `<table>${thead}${tbody}</table>`;
+}
 
     // ---------- Build UI ----------
     let currentCat = null;
