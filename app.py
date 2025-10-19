@@ -364,8 +364,8 @@ TABLES: List[Dict[str, Any]] = [
         "orderby": ""
     },
     {
-        "name": "Layoff Tracking",
-        "logical": "jdas_layofftracking",   # ← confirm actual logical name
+        "name": "Layoff Tracking*",
+        "logical": "cred8_layoffannouncement",   # ← confirm actual logical name
         "path": "/api/layoffs",             # keep the working path used by your card
         "columns": ["cred8_announcementdate","cred8_companyname", "cred8_numberoflayoffs"],
         "map_to": ["Date Logged", "Company", "Layoff Number"],
