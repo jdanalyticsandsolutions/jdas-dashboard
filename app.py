@@ -394,24 +394,24 @@ TABLES: List[Dict[str, Any]] = [
         "name": "Environmental Regulation",
         "logical": "jdas_environmentalregulation",
         "path": "/api/environmental-regulation",
-        "columns": [],
-        "map_to": [],
+        "columns": [["jdas_compliancedeadline", "jdas_regulationcoverage", "jdas_regulatoryjurisdiction"],
+        "map_to": ["Deadline", "Coverage", "Jurisdiction"],
         "orderby": ""
     },
     {
         "name": "Environmental Policy",
         "logical": "jdas_environmentalpolicy",
         "path": "/api/environmental-policy",
-        "columns": [],
-        "map_to": [],
+        "columns": [jdas_effectivedate","jdas_jurisdiction","jdas_policyname","jdas_policystatus","jdas_policysummary"],
+        "map_to": ["Effective Date", "Jurisdiction", "Policy Name", "Policy Status", "Policy Summary"],
         "orderby": ""
     },
     {
         "name": "Infrastructure Investment",
         "logical": "jdas_infrastructureinvestment",
         "path": "/api/infrastructure-investment",
-        "columns": [],
-        "map_to": [],
+        "columns": ["jdas_challenges_risks","jdas_focus_area","jdas_funding_amount_usd","jdas_funding_amount_usd_base","jdas_funding_source","jdas_program_act","jdas_recent_progress_updates","jdas_sector"],
+        "map_to": ["Challenges / Risks","Focus Area","Funding Amount (USD)","Funding Amount (Base)","Funding Source","Program / Act","Recent Progress Updates","Sector"],
         "orderby": ""
     },
 
