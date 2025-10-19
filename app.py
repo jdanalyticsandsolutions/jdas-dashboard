@@ -346,7 +346,7 @@ TABLES: List[Dict[str, Any]] = [
         "orderby": "jdas_month asc"
     },
     {
-        "name": "Treasury Yields Record",
+        "name": "Treasury Yield Record",
         "logical": "jdas_treasuryyieldrecord",
         "path": "/api/treasury-yields-record",
         "columns": ["jdas_month", "jdas_5yeartreasuryyield,jdas_tenyeartreasuryyieldpercentage"],
@@ -402,7 +402,7 @@ TABLES: List[Dict[str, Any]] = [
         "name": "Environmental Policy",
         "logical": "jdas_environmentalpolicy",
         "path": "/api/environmental-policy",
-        "columns": [jdas_effectivedate","jdas_jurisdiction","jdas_policyname","jdas_policystatus","jdas_policysummary"],
+        "columns": ["jdas_effectivedate","jdas_jurisdiction","jdas_policyname","jdas_policystatus","jdas_policysummary"],
         "map_to": ["Effective Date", "Jurisdiction", "Policy Name", "Policy Status", "Policy Summary"],
         "orderby": ""
     },
