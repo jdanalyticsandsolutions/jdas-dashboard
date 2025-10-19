@@ -359,24 +359,24 @@ TABLES: List[Dict[str, Any]] = [
         "name": "Publicly Announced Revenue Loss",
         "logical": "cred8_publiclyannoucedrevenueloss",  # keep your exact logical name
         "path": "/api/publicly-annouced-revenue-loss",   # route spelling matches existing
-        "columns": [],
-        "map_to": [],
+        "columns": ["cred8_company", "cred8_amountloss", "cred8_amountloss_base"],
+        "map_to": ["Company", "Amount Loss", "Amount Loss (Base)"],
         "orderby": ""
     },
     {
         "name": "Layoff Tracking",
         "logical": "jdas_layofftracking",   # ← confirm actual logical name
         "path": "/api/layoffs",             # keep the working path used by your card
-        "columns": [],
-        "map_to": [],
-        "orderby": "createdon desc"
+        "columns": ["cred8_announcementdate","cred8_companyname", "cred8_numberoflayoffs"],
+        "map_to": ["Date Logged", "Company", "Layoff Number"],
+        "orderby":  "cred8_announcementdate desc"
     },
     {
         "name": "Acquisition Deal",
         "logical": "jdas_acquisitiondeal",
         "path": "/api/acquisition-deal",
-        "columns": [],
-        "map_to": [],
+        "columns": ["jdas_acquirername", "jdas_announcementdate", "jdas_targetcompanyname"],
+        "map_to": ["Acquirer", "Announcement Date", "Target Company"],
         "orderby": ""
     },
     {
@@ -384,8 +384,8 @@ TABLES: List[Dict[str, Any]] = [
         "logical": "cred8_bankruptcylog",
         "entity_set": "cred8_bankruptcylogs",
         "path": "/api/bankruptcies",
-        "columns": [],
-        "map_to": [],
+        "columns": ["cred8_company", "cred8_sector", "cred8_datelogged"],
+        "map_to": ["Company", "Sector", "Date Logged"],
         "orderby": ""
     },
 
@@ -420,24 +420,24 @@ TABLES: List[Dict[str, Any]] = [
         "name": "Corporate SpinOff",
         "logical": "jdas_corporatespinoff",
         "path": "/api/corporate-spinoff",
-        "columns": [],
-        "map_to": [],
+        "columns": ["jdas_headquartersregion", "jdas_spinoffentity"],
+        "map_to": ["HQ Region", "Spin-Off Entity"],
         "orderby": ""
     },
     {
         "name": "Conflict Record",
         "logical": "jdas_conflictrecord",
         "path": "/api/conflict-record",
-        "columns": [],
-        "map_to": [],
+        "columns": ["jdas_conflictname", "jdas_conflictnature"],
+        "map_to": ["Conflict Name", "Conflict Nature"],
         "orderby": ""
     },
     {
         "name": "Global Natural Disasters",
         "logical": "jdas_globalnaturaldisasters",
         "path": "/api/global-natural-disasters",
-        "columns": [],
-        "map_to": [],
+        "columns": ["jdas_countryregion", "jdas_disastername"],
+        "map_to": ["Country/Region", "Disaster Name"],
         "orderby": ""
     },
 ]
