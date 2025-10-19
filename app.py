@@ -349,9 +349,9 @@ TABLES: List[Dict[str, Any]] = [
         "name": "Treasury Yields Record",
         "logical": "jdas_treasuryyieldrecord",
         "path": "/api/treasury-yields-record",
-        "columns": ["jdas_month", "jdas_5yeartreasuryyield"],
+        "columns": ["jdas_month", "jdas_5yeartreasuryyield,jdas_tenyeartreasuryyieldpercentage"],
         "map_to": ["Month", "5-Year Treasury Yield"],
-        "orderby": "jdas_sortorder asc"
+        "orderby": ""
     },
 
     # ── Labor & Society ───────────────────────────────────────────────────────
