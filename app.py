@@ -394,7 +394,7 @@ TABLES: List[Dict[str, Any]] = [
         "name": "Environmental Regulation",
         "logical": "jdas_environmentalregulation",
         "path": "/api/environmental-regulation",
-        "columns": [["jdas_compliancedeadline", "jdas_regulationcoverage", "jdas_regulatoryjurisdiction"],
+        "columns": ["jdas_compliancedeadline", "jdas_regulationcoverage", "jdas_regulatoryjurisdiction"],
         "map_to": ["Deadline", "Coverage", "Jurisdiction"],
         "orderby": ""
     },
