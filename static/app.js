@@ -1,9 +1,12 @@
 <script>
-/* ======================================
-   JDAS Tailored Industry Updates — app.js
-   Tabs (Industry) + Subtabs (Sections)
-   Matches new style.css: .tabs/.tab + .subtabs/.subtab + .view/.active + .cards/.carditem
-   ====================================== */
+/* =========================================================
+   JDAS Tailored Industry Updates — app.js (Industry -> Table)
+   - Main tabs: Industry
+   - Subtabs: Dataverse Table (per industry)
+   - Cards filtered by selected table using backend field: row.table (logical)
+   Requires backend (new app.py) cards to include:
+     { table: "jdas_marketanalysis", title, subtitle, body, details, tag, createdOn, ... }
+   ========================================================= */
 
 (() => {
   "use strict";
@@ -18,9 +21,8 @@
   const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
 
   function buildQS(params) {
-    if (!params) return "";
     const usp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
+    for (const [k, v] of Object.entries(params || {})) {
       if (v === undefined || v === null || v === "") continue;
       usp.set(k, String(v));
     }
@@ -48,7 +50,6 @@
     if (label) label.textContent = text || "";
   }
 
-  /* ---------- Fetch ---------- */
   async function fetchJSON(path, { method = "GET", body = null, timeoutMs = 20000 } = {}) {
     const url = `${API_BASE}${path}`;
     const ac = new AbortController();
@@ -70,7 +71,7 @@
 
       if (!res.ok) {
         const text = await res.text().catch(() => "");
-        throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${text.slice(0, 500)}`);
+        throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${text.slice(0, 600)}`);
       }
 
       return await res.json();
@@ -79,40 +80,73 @@
     }
   }
 
-  /* ---------- Normalizers ---------- */
-  // Summary endpoint: { ok:true, blocks:{ key:{ ok, items:[...] } } }
+  /* ---------- Response Normalizer ---------- */
+  // Backend summary: { ok:true, blocks:{ industryKey:{ ok, items:[...] } } }
   function asSummaryBlocks(payload) {
     if (!isObj(payload) || payload.ok !== true || !isObj(payload.blocks)) return {};
     return payload.blocks;
   }
 
-  /* ---------- API calls ---------- */
   async function getIndustrySummary({ top = 10, orderby = "createdon desc", timeoutMs = 25000 } = {}) {
     const qs = buildQS({ top, orderby });
     const data = await fetchJSON(`/api/v1/summary/industry-updates${qs}`, { timeoutMs });
     return asSummaryBlocks(data);
   }
 
-  /* ---------- UI Model ---------- */
-  // Industry tabs (top-level)
+  /* =========================================================
+     UI MODEL
+     Industry tabs + table subtabs mapping (logical names)
+     Must match backend INDUSTRY_TABLE_MAP + normalize_row().table
+     ========================================================= */
   const INDUSTRIES = Object.freeze([
-    { key: "real_estate",   label: "Real Estate" },
-    { key: "automotive",    label: "Automotive" },
-    { key: "analytics_ops", label: "Business Analytics & Ops" },
-    { key: "ai",            label: "AI Developments" },
-    { key: "market",        label: "Market Insight" },
-    { key: "outlook",       label: "Market Outlook" },
-    { key: "trends",        label: "Market Trends" },
-    { key: "analysis",      label: "Market Analysis" }
+    {
+      key: "real_estate",
+      label: "Real Estate",
+      tables: [
+        { key: "jdas_housingmarketinsight", label: "Housing Market Insight" },
+        { key: "jdas_marketoutlook",       label: "Market Outlook" }
+      ]
+    },
+    {
+      key: "automotive",
+      label: "Automotive",
+      tables: [
+        { key: "jdas_vehiclesalesforecast", label: "Vehicle Sales Forecast" }
+      ]
+    },
+    {
+      key: "analytics_ops",
+      label: "Business Analytics & Ops",
+      tables: [
+        { key: "jdas_analyticsparadigm", label: "Analytics Paradigm" }
+      ]
+    },
+    {
+      key: "ai",
+      label: "AI Developments",
+      tables: [
+        { key: "jdas_aiindustryinsight", label: "AI Industry Insight" }
+      ]
+    },
+    {
+      key: "market",
+      label: "Market Insight",
+      tables: [
+        { key: "jdas_marketinsight",      label: "Market Insight" },
+        { key: "jdas_markettrendinsight", label: "Market Trend Insight" },
+        { key: "jdas_marketanalysis",     label: "Market Analysis" }
+      ]
+    }
   ]);
 
-  // Field fallback order for cards (adjustable without breaking)
+  /* ---------- Card field fallbacks ---------- */
   const FIELD = Object.freeze({
     title: ["title", "name", "topic", "headline"],
-    desc:  ["description", "summary", "detail", "subtitle"],
-    body:  ["body", "insight", "notes", "content", "text"],
-    date:  ["createdon", "createdOn", "date", "timestamp"],
-    source:["source", "publisher", "link_source", "origin"]
+    subtitle: ["subtitle", "summary", "detail", "description"],
+    body: ["body", "insight", "notes", "content", "text"],
+    details: ["details"],
+    tag: ["tag"],
+    date: ["createdOn", "createdon", "date", "timestamp"]
   });
 
   function pick(obj, keys) {
@@ -122,14 +156,11 @@
     return "";
   }
 
-  function getSubtabKeys(items) {
-    // Prefer a "section" style field if you have it; otherwise use titles.
-    // If your backend already groups by "title" (like you showed), titles work well.
-    const titles = items.map(x => String(pick(x, FIELD.title) || "").trim()).filter(Boolean);
-    return [...new Set(titles)];
-  }
+  const norm = (s) => String(s || "").trim().toLowerCase();
 
-  /* ---------- Rendering ---------- */
+  /* =========================================================
+     Rendering
+     ========================================================= */
   function renderShell() {
     const tabsEl = document.getElementById("industryTabs");
     const viewsEl = document.getElementById("industryViews");
@@ -142,7 +173,6 @@
     tabsEl.innerHTML = "";
     viewsEl.innerHTML = "";
 
-    // Create industry tabs + empty views
     for (const ind of INDUSTRIES) {
       const tab = document.createElement("button");
       tab.type = "button";
@@ -180,9 +210,10 @@
     });
   }
 
-  function setActiveSubtab(industryKey, subtabLabel) {
+  function setActiveTable(industryKey, tableKey) {
+    const want = norm(tableKey);
     document.querySelectorAll(`.subtabs[data-subtabs="${industryKey}"] .subtab`).forEach(btn => {
-      btn.setAttribute("aria-selected", btn.dataset.subtab === subtabLabel ? "true" : "false");
+      btn.setAttribute("aria-selected", norm(btn.dataset.table) === want ? "true" : "false");
     });
   }
 
@@ -191,15 +222,18 @@
 
     const html = items.map((row) => {
       const t = pick(row, FIELD.title) || "Update";
-      const d = pick(row, FIELD.desc);
+      const sub = pick(row, FIELD.subtitle);
       const b = pick(row, FIELD.body);
+      const det = pick(row, FIELD.details);
+      const tag = pick(row, FIELD.tag);
 
-      // keep it clean: only show sections that exist
       return `
         <div class="carditem">
           <div class="t">${escapeHtml(t)}</div>
-          ${d ? `<div class="d">${escapeHtml(d)}</div>` : ""}
+          ${tag ? `<div class="meta">${escapeHtml(tag)}</div>` : ""}
+          ${sub ? `<div class="d">${escapeHtml(sub)}</div>` : ""}
           ${b ? `<div class="b">${escapeHtml(b)}</div>` : ""}
+          ${det ? `<div class="b">${escapeHtml(det)}</div>` : ""}
         </div>
       `.trim();
     }).join("");
@@ -207,55 +241,65 @@
     return `<div class="cards">${html}</div>`;
   }
 
-  function renderIndustry(blocks, industryKey) {
-    const block = blocks[industryKey];
-    const items = (block && Array.isArray(block.items)) ? block.items : [];
-
+  function renderSubtabs(industryKey) {
+    const ind = INDUSTRIES.find(x => x.key === industryKey);
     const subtabsEl = document.querySelector(`.subtabs[data-subtabs="${industryKey}"]`);
-    const contentEl = document.querySelector(`[data-content="${industryKey}"]`);
-    if (!subtabsEl || !contentEl) return;
+    if (!ind || !subtabsEl) return;
 
-    // Empty state
-    if (!items.length) {
-      subtabsEl.innerHTML = "";
-      contentEl.innerHTML = `<div class="empty">No records found.</div>`;
-      return;
-    }
-
-    // Build subtabs from unique titles (or whatever you want)
-    const subtabKeys = getSubtabKeys(items);
-
-    // If titles are blank, fallback to "All"
-    if (!subtabKeys.length) {
-      subtabsEl.innerHTML = "";
-      contentEl.innerHTML = renderCards(items);
-      return;
-    }
-
-    subtabsEl.innerHTML = subtabKeys.map((label, i) => {
+    subtabsEl.innerHTML = ind.tables.map((t, i) => {
       const selected = i === 0 ? "true" : "false";
       return `
         <button type="button"
                 class="subtab"
                 data-industry="${escapeHtml(industryKey)}"
-                data-subtab="${escapeHtml(label)}"
+                data-table="${escapeHtml(t.key)}"
                 aria-selected="${selected}">
-          ${escapeHtml(label)}
+          ${escapeHtml(t.label)}
         </button>
       `.trim();
     }).join("");
+  }
 
-    // Default to first subtab: filter to that title
-    const first = subtabKeys[0];
-    const bucket = items.filter(x => String(pick(x, FIELD.title) || "").trim() === first);
-    contentEl.innerHTML = renderCards(bucket);
+  function filterToTable(items, tableKey) {
+    const want = norm(tableKey);
+    if (!want) return items;
+
+    // Primary: backend provides row.table = logical name (ex: jdas_marketanalysis)
+    const filtered = items.filter(r => norm(r.table) === want);
+
+    // If nothing matches (bad/missing table field), fall back to all so UI isn't blank
+    return filtered.length ? filtered : items;
+  }
+
+  function renderIndustry(state, industryKey) {
+    const block = state.blocks?.[industryKey];
+    const items = (block && Array.isArray(block.items)) ? block.items : [];
+
+    const contentEl = document.querySelector(`[data-content="${industryKey}"]`);
+    if (!contentEl) return;
+
+    // Always render subtabs from mapping
+    renderSubtabs(industryKey);
+
+    if (!items.length) {
+      contentEl.innerHTML = `<div class="empty">No records found.</div>`;
+      return;
+    }
+
+    const ind = INDUSTRIES.find(x => x.key === industryKey);
+    const defaultTable = ind?.tables?.[0]?.key || "";
+
+    const activeTable = state.activeTables[industryKey] || defaultTable;
+    state.activeTables[industryKey] = activeTable;
+
+    setActiveTable(industryKey, activeTable);
+    contentEl.innerHTML = renderCards(filterToTable(items, activeTable));
   }
 
   function bindEvents(state) {
     const tabsEl = document.getElementById("industryTabs");
     const viewsEl = document.getElementById("industryViews");
 
-    // Industry tab clicks
     tabsEl.addEventListener("click", (e) => {
       const btn = e.target.closest(".tab");
       if (!btn) return;
@@ -265,34 +309,35 @@
 
       setActiveIndustry(key);
 
-      // Ensure a sensible subtab is selected (if exists)
-      const firstSub = document.querySelector(`.subtabs[data-subtabs="${key}"] .subtab`);
-      if (firstSub) {
-        const sub = firstSub.dataset.subtab;
-        state.activeSubtabs[key] = sub;
-        setActiveSubtab(key, sub);
-      }
+      // Ensure subtabs exist and table is selected
+      const ind = INDUSTRIES.find(x => x.key === key);
+      const defaultTable = ind?.tables?.[0]?.key || "";
+      const tableToUse = state.activeTables[key] || defaultTable;
+      state.activeTables[key] = tableToUse;
+
+      setActiveTable(key, tableToUse);
+
+      const items = (state.blocks?.[key]?.items) || [];
+      const contentEl = document.querySelector(`[data-content="${key}"]`);
+      if (contentEl) contentEl.innerHTML = renderCards(filterToTable(items, tableToUse));
     });
 
-    // Subtab clicks
     viewsEl.addEventListener("click", (e) => {
       const btn = e.target.closest(".subtab");
       if (!btn) return;
 
       const industryKey = btn.dataset.industry;
-      const subtabLabel = btn.dataset.subtab;
+      const tableKey = btn.dataset.table;
 
       state.activeIndustry = industryKey;
-      state.activeSubtabs[industryKey] = subtabLabel;
+      state.activeTables[industryKey] = tableKey;
 
       setActiveIndustry(industryKey);
-      setActiveSubtab(industryKey, subtabLabel);
+      setActiveTable(industryKey, tableKey);
 
-      // Re-render filtered cards
       const items = (state.blocks?.[industryKey]?.items) || [];
-      const bucket = items.filter(x => String(pick(x, FIELD.title) || "").trim() === subtabLabel);
       const contentEl = document.querySelector(`[data-content="${industryKey}"]`);
-      if (contentEl) contentEl.innerHTML = renderCards(bucket);
+      if (contentEl) contentEl.innerHTML = renderCards(filterToTable(items, tableKey));
     });
   }
 
@@ -301,39 +346,28 @@
     const state = {
       blocks: {},
       activeIndustry: INDUSTRIES[0]?.key || "real_estate",
-      activeSubtabs: Object.create(null)
+      activeTables: Object.create(null)
     };
 
-    // Render base UI
     if (!renderShell()) return;
     bindEvents(state);
 
-    // Show initial selected tab/view immediately (even before data)
-    setActiveIndustry(state.activeIndustry);
-
-    // Loading UI per view
+    // Pre-render subtabs + loading
     for (const ind of INDUSTRIES) {
+      renderSubtabs(ind.key);
       const contentEl = document.querySelector(`[data-content="${ind.key}"]`);
       if (contentEl) contentEl.innerHTML = `<div class="loading">Loading…</div>`;
     }
+
+    setActiveIndustry(state.activeIndustry);
     setStatus("ok", "Loading latest updates…");
 
     try {
       const blocks = await getIndustrySummary({ top, orderby });
       state.blocks = blocks;
 
-      // Render each industry view
       for (const ind of INDUSTRIES) {
-        renderIndustry(blocks, ind.key);
-      }
-
-      // Select first available subtab for the active industry (if any)
-      const firstSub = document.querySelector(`.subtabs[data-subtabs="${state.activeIndustry}"] .subtab[aria-selected="true"]`)
-                    || document.querySelector(`.subtabs[data-subtabs="${state.activeIndustry}"] .subtab`);
-      if (firstSub) {
-        const sub = firstSub.dataset.subtab;
-        state.activeSubtabs[state.activeIndustry] = sub;
-        setActiveSubtab(state.activeIndustry, sub);
+        renderIndustry(state, ind.key);
       }
 
       setStatus("ok", "Loaded latest updates.");
@@ -341,21 +375,18 @@
       console.error(err);
       setStatus("err", "Failed to load updates. Check API_BASE / network / endpoint.");
 
-      // Render error into each view
       for (const ind of INDUSTRIES) {
         const contentEl = document.querySelector(`[data-content="${ind.key}"]`);
         if (contentEl) contentEl.innerHTML = `<div class="empty">Error loading data.</div>`;
       }
     }
 
-    // Expose for manual refresh/debug
     window.JDAS_UI = {
       reload: (opts) => loadDashboard(opts),
       get state() { return state; }
     };
   }
 
-  // Expose minimal API like before
   window.JDAS = Object.freeze({
     API_BASE,
     api: Object.freeze({
@@ -364,7 +395,6 @@
     })
   });
 
-  // Boot on DOM ready
   document.addEventListener("DOMContentLoaded", () => {
     console.log("[JDAS] API_BASE:", API_BASE);
     loadDashboard({ top: 10, orderby: "createdon desc" });
