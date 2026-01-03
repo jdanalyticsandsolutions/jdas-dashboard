@@ -1,13 +1,110 @@
-/* ======================================
-   TABS — Industry (Primary Navigation)
-   Darker, heavier, clearly dominant
-   ====================================== */
+/* =========================================================
+   JDAS — Tailored Industry Updates (Smoother + Framed UI)
+   Goals:
+   - Primary tabs feel dominant (navy)
+   - Subcategory buttons are EASY to read (dark text, light pills)
+   - Everything is framed/paneled for clarity
+   - Accessible focus + hover states
+   ========================================================= */
 
+/* -------------------------
+   Theme tokens
+------------------------- */
+:root{
+  --bg: #f2f4f7;
+  --panel: #ffffff;
+  --panel-2:#f7f9fc;
+
+  --navy-900:#0b1220;
+  --navy-800:#101a2b;
+  --navy-700:#172338;
+
+  --border:#d8dee8;
+  --border-2:#c8d0de;
+
+  --text:#1f2a3a;
+  --muted:#5b6a7d;
+
+  --blue:#5a8dee;
+  --blue-2:#3f78e6;
+
+  --green:#28b37a;
+  --shadow: 0 10px 28px rgba(16,26,43,.12);
+
+  --r-xl: 18px;
+  --r-lg: 14px;
+  --r-md: 12px;
+
+  --pad: 14px;
+}
+
+/* -------------------------
+   Base page defaults
+   (safe even if embedded)
+------------------------- */
+html, body{
+  background: var(--bg);
+  color: var(--text);
+}
+
+*{ box-sizing:border-box; }
+
+a{ color: var(--blue-2); }
+a:hover{ opacity:.9; }
+
+:focus-visible{
+  outline: 3px solid rgba(90,141,238,.45);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* Optional: if you have a main wrapper */
+.container,
+main,
+#app,
+.app{
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* -------------------------
+   Framing helpers (optional)
+   Wrap sections in these for even clearer separation:
+   <div class="frame"> ... </div>
+------------------------- */
+.frame{
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow);
+  padding: var(--pad);
+  margin: 12px 0;
+}
+
+.frame--tight{
+  padding: 10px;
+}
+
+.frame__title{
+  font-weight: 800;
+  color: var(--navy-900);
+  letter-spacing: .2px;
+  margin: 0 0 10px 0;
+}
+
+/* -------------------------
+   Primary Tabs (Industry)
+------------------------- */
 .tabs{
   display:flex;
-  gap:10px;
   flex-wrap:wrap;
-  margin-bottom: 14px;
+  gap:10px;
+  margin: 10px 0 12px;
+  padding: 12px;
+  background: linear-gradient(180deg, var(--navy-800), var(--navy-900));
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: var(--r-xl);
+  box-shadow: 0 10px 26px rgba(11,18,32,.18);
 }
 
 .tab{
@@ -16,105 +113,169 @@
   border-radius: 999px;
   padding: 10px 14px;
 
-  /* DARKER base */
-  background: linear-gradient(
-    180deg,
-    rgba(20,32,58,.85),
-    rgba(12,20,40,.95)
-  );
-  border: 1px solid rgba(255,255,255,.22);
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.16);
 
-  color: #fff;
+  color:#fff;
   font-weight: 850;
   font-size: 13px;
   letter-spacing: .2px;
 
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.10),
-    0 6px 14px rgba(0,0,0,.25);
+    0 6px 14px rgba(0,0,0,.18);
 
   transition:
+    transform .08s ease,
     background .18s ease,
     border-color .18s ease,
-    box-shadow .18s ease,
-    transform .08s ease;
+    box-shadow .18s ease;
 }
 
 .tab:hover{
-  background: linear-gradient(
-    180deg,
-    rgba(30,48,90,.9),
-    rgba(18,30,64,.95)
-  );
-  border-color: rgba(90,141,238,.55);
   transform: translateY(-1px);
+  background: rgba(255,255,255,.16);
+  border-color: rgba(90,141,238,.55);
 }
 
-/* ACTIVE main tab */
 .tab[aria-selected="true"]{
-  background: linear-gradient(
-    180deg,
-    rgba(90,141,238,.45),
-    rgba(60,105,200,.55)
-  );
-  border-color: rgba(90,141,238,.9);
+  background: linear-gradient(180deg, rgba(90,141,238,.95), rgba(63,120,230,.95));
+  border-color: rgba(255,255,255,.22);
 
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.25),
     0 0 0 3px rgba(90,141,238,.25),
-    0 10px 26px rgba(0,0,0,.35);
+    0 12px 30px rgba(0,0,0,.28);
 }
 
-/* ======================================
-   SUBTABS — Sections (Secondary Controls)
-   Lighter, calmer, clearly subordinate
-   ====================================== */
-
+/* -------------------------
+   Subtabs (Subcategories)
+   Key change: LIGHT surface + DARK text for readability
+------------------------- */
 .subtabs{
   display:flex;
-  gap:10px;
   flex-wrap:wrap;
+  gap:10px;
+
+  /* framed strip */
+  padding: 12px;
   margin: 10px 0 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255,255,255,.08);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: 0 8px 22px rgba(16,26,43,.10);
 }
 
 .subtab{
   cursor:pointer;
-  border-radius: 14px;
+  border-radius: 999px;
   padding: 8px 12px;
 
-  /* LIGHTER base */
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.18);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
 
-  color: #f4f7fb;
-  font-weight: 700;
+  color: var(--text);
+  font-weight: 800;
   font-size: 12.5px;
 
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.12),
-    0 4px 10px rgba(0,0,0,.18);
+    inset 0 1px 0 rgba(255,255,255,.80),
+    0 4px 10px rgba(16,26,43,.10);
 
   transition:
+    transform .08s ease,
     background .15s ease,
     border-color .15s ease,
-    box-shadow .15s ease,
-    transform .08s ease;
+    box-shadow .15s ease;
 }
 
 .subtab:hover{
-  background: rgba(255,255,255,.14);
-  border-color: rgba(255,255,255,.30);
+  transform: translateY(-1px);
+  background: #ffffff;
+  border-color: var(--border-2);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.90),
+    0 8px 16px rgba(16,26,43,.12);
 }
 
-/* ACTIVE subtab */
 .subtab[aria-selected="true"]{
-  background: rgba(97,208,149,.22);
-  border-color: rgba(97,208,149,.70);
+  background: rgba(40,179,122,.12);
+  border-color: rgba(40,179,122,.55);
+  color: var(--navy-900);
 
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.28),
-    0 0 0 2px rgba(97,208,149,.18),
-    0 6px 16px rgba(0,0,0,.22);
+    inset 0 1px 0 rgba(255,255,255,.85),
+    0 0 0 3px rgba(40,179,122,.18),
+    0 10px 22px rgba(16,26,43,.14);
+}
+
+/* If you ever disable a subtab */
+.subtab[aria-disabled="true"],
+.subtab:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+  transform:none;
+}
+
+/* -------------------------
+   Content framing (cards / lists)
+   These help with "nothing is framed in"
+   Use if your view mode uses cards, rows, etc.
+------------------------- */
+
+/* A general results area wrapper (if you have one) */
+.results,
+.cards,
+.list{
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow);
+  padding: var(--pad);
+}
+
+/* Card grid (safe defaults) */
+.cards{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+/* Individual card */
+.card{
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 12px;
+  box-shadow: 0 8px 18px rgba(16,26,43,.10);
+}
+
+.card h3, .card .title{
+  margin: 0 0 6px 0;
+  font-weight: 900;
+  color: var(--navy-900);
+}
+
+.card .meta{
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.card p{
+  margin: 0;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+/* -------------------------
+   Mobile polish
+------------------------- */
+@media (max-width: 520px){
+  .tabs, .subtabs{
+    padding: 10px;
+    gap: 8px;
+  }
+  .tab{ padding: 9px 12px; font-size: 12.5px; }
+  .subtab{ padding: 8px 11px; font-size: 12px; }
 }
