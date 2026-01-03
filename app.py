@@ -1,4 +1,12 @@
-# app.py — JDAS Tailored Industry Updates backend (Dataverse raw + normalized summary)
+# app.py — JDAS Tailored Industry Updates backend
+# Dataverse raw + normalized summary
+#
+# ✅ Updated for: Main tabs = Industry, Subtabs = Dataverse Table
+# - /api/v1/summary/industry-updates now returns ONE block per INDUSTRY
+# - Each industry block combines cards from multiple tables
+# - Each card includes "table" = Dataverse logical name (ex: jdas_marketanalysis)
+#   so the frontend can filter by table subtab cleanly.
+
 import os
 import time
 import asyncio
@@ -20,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
-app = FastAPI(title="JDAS Tailored Industry Updates API", version="1.1.0")
+app = FastAPI(title="JDAS Tailored Industry Updates API", version="1.2.0")
 
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -258,7 +266,7 @@ def build_query(
 ) -> str:
     """
     Build an OData query.
-    If include_select=False -> fetch all columns (Dataverse will include @odata.etag metadata too).
+    If include_select=False -> fetch all columns.
     """
     params = {"$top": str(top)}
     if orderby:
@@ -284,22 +292,26 @@ TABLE_REGISTRY: Dict[str, Dict[str, str]] = {
     "aiindustryinsight": {"logical": "jdas_aiindustryinsight"},
 }
 
-# Which blocks the dashboard asks for (block_name -> table_key)
-SUMMARY_MAP: Dict[str, str] = {
-    # industries
-    "real_estate": "housingmarketinsight",
-    "automotive": "vehiclesalesforecast",
-    "analytics_ops": "analyticsparadigm",
-    "ai": "aiindustryinsight",
-    # general market blocks
-    "market": "marketinsight",
-    "outlook": "marketoutlook",
-    "trends": "markettrendinsight",
-    "analysis": "marketanalysis",
+# ✅ INDUSTRY -> TABLES (this drives the UI structure)
+INDUSTRY_TABLE_MAP: Dict[str, List[str]] = {
+    "real_estate": ["housingmarketinsight", "marketoutlook"],
+    "automotive": ["vehiclesalesforecast"],
+    "analytics_ops": ["analyticsparadigm"],
+    "ai": ["aiindustryinsight"],
+    "market": ["marketinsight", "markettrendinsight", "marketanalysis"],
+}
+
+# Optional: display labels for industries (helpful for debug/metadata)
+INDUSTRY_DISPLAY: Dict[str, str] = {
+    "real_estate": "Real Estate",
+    "automotive": "Automotive",
+    "analytics_ops": "Business Analytics & Ops",
+    "ai": "AI Developments",
+    "market": "Market Insight",
 }
 
 # ============================================================
-# NORMALIZATION (this is what stops W/"####" from ever showing)
+# NORMALIZATION
 # ============================================================
 TABLE_DISPLAY_NAMES: Dict[str, str] = {
     "marketinsight": "Market Insight",
@@ -313,7 +325,6 @@ TABLE_DISPLAY_NAMES: Dict[str, str] = {
 }
 
 TABLE_MAPPINGS: Dict[str, Dict[str, str]] = {
-    # table_key -> which columns become title/subtitle/body/etc.
     "marketinsight": {
         "title": "jdas_marketcategory",
         "subtitle": "jdas_marketsizeoverview",
@@ -375,15 +386,13 @@ def _guess_id(row: dict, table_key: str) -> Optional[str]:
     """
     Best-effort ID extraction:
     - primary key usually is {logical}id, e.g. jdas_marketinsightid
-    - but we only have table_key in SUMMARY_MAP; use registry logical too
     """
     logical = TABLE_REGISTRY.get(table_key, {}).get("logical")
     if logical:
-        maybe_pk = f"{logical}id"  # common Dataverse convention
+        maybe_pk = f"{logical}id"
         if maybe_pk in row:
             return _safe_text(row.get(maybe_pk))
 
-    # fallbacks
     for k in ("id", "Id", "ID"):
         if k in row:
             return _safe_text(row.get(k))
@@ -393,7 +402,8 @@ def _guess_id(row: dict, table_key: str) -> Optional[str]:
 def normalize_row(row: dict, table_key: str) -> Optional[dict]:
     """
     Convert a raw Dataverse row into a clean 'card' object.
-    IMPORTANT: We do not pass through raw keys (like @odata.etag).
+    ✅ Includes a stable table identifier for frontend filtering:
+       "table" = Dataverse logical name (e.g. jdas_marketanalysis)
     """
     mapping = TABLE_MAPPINGS.get(table_key)
     if not mapping:
@@ -405,14 +415,21 @@ def normalize_row(row: dict, table_key: str) -> Optional[dict]:
     details = _safe_text(row.get(mapping.get("details", ""))) if mapping.get("details") else None
     tag = _safe_text(row.get(mapping.get("tag", ""))) if mapping.get("tag") else None
 
-    # If there's no title at all, this record won't render well as a card
     if not title:
         return None
 
+    logical = TABLE_REGISTRY.get(table_key, {}).get("logical")  # e.g. jdas_marketanalysis
+    display = TABLE_DISPLAY_NAMES.get(table_key, table_key)
+
     return {
         "id": _guess_id(row, table_key),
-        "table_key": table_key,
-        "table_name": TABLE_DISPLAY_NAMES.get(table_key, table_key),
+
+        # ✅ frontend table filtering relies on this:
+        "table": logical,            # "jdas_marketanalysis"
+        "logical": logical,          # alias (debug)
+        "table_key": table_key,      # internal key (debug)
+        "table_name": display,       # friendly name
+
         "title": title,
         "subtitle": subtitle,
         "body": body,
@@ -438,7 +455,6 @@ async def fetch_table_all_columns(
     logical = cfg["logical"]
     entity_set = await resolve_entity_set_from_logical(logical)
 
-    # All columns (no $select)
     query = build_query(entity_set, top=top, orderby=orderby, extra=extra, include_select=False)
 
     cache_key = f"{table_key}|{entity_set}|{top}|{orderby}|{extra or ''}|ALL"
@@ -469,6 +485,7 @@ async def fetch_table_cards(
 ) -> Dict[str, Any]:
     """
     Returns a normalized, frontend-safe payload for a single table_key.
+    Each card includes "table" (logical name) for frontend table subtabs.
     """
     data = await fetch_table_all_columns(table_key=table_key, top=top, orderby=orderby, extra=None)
     raw_items = data.get("value", [])
@@ -505,46 +522,94 @@ async def raw_table(
         payload = await fetch_table_all_columns(table_key=table_key, top=top, orderby=orderby, extra=extra)
         return JSONResponse(content=payload, status_code=200)
     except HTTPException as e:
-        # Mask upstream errors to keep 200 for iframe; tell frontend ok:false
         return JSONResponse(status_code=200, content={"ok": False, "status": e.status_code, "error": str(e.detail)})
     except Exception as e:
         return JSONResponse(status_code=200, content={"ok": False, "status": 500, "error": f"Server error: {e}"})
 
 
 # ============================================================
-# API — Summary endpoints (what your Wix dashboard should use)
+# API — Summary endpoints (Wix dashboard)
 # ============================================================
 @app.get(
     "/api/v1/summary/industry-updates",
-    summary="One-call endpoint for the Tailored Industry Updates dashboard (normalized cards)",
+    summary="Industry blocks with table-filterable normalized cards (Main tabs=Industry, Subtabs=Table)",
 )
 async def industry_updates(
-    top: int = Query(10, ge=1, le=MAX_TOP, description="Rows per block"),
+    top: int = Query(10, ge=1, le=MAX_TOP, description="Rows per TABLE (combined per industry)"),
     orderby: str = Query(DEFAULT_ORDERBY, description="OData $orderby (default: createdon desc)"),
 ):
     """
-    Returns multiple blocks in one payload for fast Wix loading.
-    Each block returns NORMALIZED card objects:
-      {id, title, subtitle, body, details, tag, createdOn, ...}
-    So the frontend never sees @odata.etag and won't render W/\"####\" ever again.
+    Returns ONE block per INDUSTRY:
+      blocks.real_estate.items = combined cards from [housingmarketinsight, marketoutlook]
+      blocks.market.items      = combined cards from [marketinsight, markettrendinsight, marketanalysis]
+    Each card includes:
+      table: "jdas_<logicalname>"  -> used by frontend to filter to the subtab.
     """
     blocks: Dict[str, Any] = {}
 
-    async def _fetch_block(block_name: str, table_key: str):
-        try:
-            blocks[block_name] = await fetch_table_cards(table_key=table_key, top=top, orderby=orderby)
-        except HTTPException as e:
-            blocks[block_name] = {"ok": False, "status": e.status_code, "error": str(e.detail)}
-        except Exception as e:
-            blocks[block_name] = {"ok": False, "status": 500, "error": f"Server error: {e}"}
+    def _created_key(item: dict) -> str:
+        # createdOn is typically ISO string; lexical sort works for newest-first
+        return item.get("createdOn") or ""
 
-    tasks = [_fetch_block(block, key) for block, key in SUMMARY_MAP.items()]
-    await asyncio.gather(*tasks)
+    async def _fetch_industry(industry_key: str, table_keys: List[str]) -> None:
+        try:
+            # fetch tables concurrently
+            results = await asyncio.gather(
+                *[fetch_table_cards(table_key=tk, top=top, orderby=orderby) for tk in table_keys],
+                return_exceptions=True,
+            )
+
+            combined: List[dict] = []
+            tables_meta: List[dict] = []
+
+            for tk, result in zip(table_keys, results):
+                if isinstance(result, Exception):
+                    tables_meta.append({"table_key": tk, "ok": False, "error": str(result)})
+                    continue
+
+                if not result.get("ok"):
+                    tables_meta.append({
+                        "table_key": tk,
+                        "ok": False,
+                        "status": result.get("status"),
+                        "error": result.get("error"),
+                    })
+                    continue
+
+                tables_meta.append({
+                    "table_key": tk,
+                    "table_name": result.get("table_name"),
+                    "logical": result.get("logical"),
+                    "count_cards": result.get("count_cards"),
+                    "ok": True,
+                })
+
+                combined.extend(result.get("items", []))
+
+            combined.sort(key=_created_key, reverse=True)
+
+            blocks[industry_key] = {
+                "ok": True,
+                "industry": industry_key,
+                "industry_name": INDUSTRY_DISPLAY.get(industry_key, industry_key),
+                "tables": tables_meta,
+                "count_cards": len(combined),
+                "items": combined,
+            }
+
+        except HTTPException as e:
+            blocks[industry_key] = {"ok": False, "status": e.status_code, "error": str(e.detail)}
+        except Exception as e:
+            blocks[industry_key] = {"ok": False, "status": 500, "error": f"Server error: {e}"}
+
+    await asyncio.gather(*[
+        _fetch_industry(ind, tkeys) for ind, tkeys in INDUSTRY_TABLE_MAP.items()
+    ])
 
     return {"ok": True, "top": top, "orderby": orderby, "blocks": blocks}
 
 
-@app.get("/api/v1/summary/cards/{table_key}", summary="Fetch one table as normalized cards (single block)")
+@app.get("/api/v1/summary/cards/{table_key}", summary="Fetch one table as normalized cards (single table)")
 async def summary_cards_single(
     table_key: str,
     top: int = Query(10, ge=1, le=MAX_TOP, description="Rows for this table"),
@@ -557,6 +622,71 @@ async def summary_cards_single(
         return JSONResponse(status_code=200, content={"ok": False, "status": e.status_code, "error": str(e.detail)})
     except Exception as e:
         return JSONResponse(status_code=200, content={"ok": False, "status": 500, "error": f"Server error: {e}"})
+
+
+@app.get("/api/v1/summary/industry/{industry_key}", summary="Fetch one industry as combined normalized cards")
+async def summary_industry_single(
+    industry_key: str,
+    top: int = Query(10, ge=1, le=MAX_TOP, description="Rows per TABLE (combined)"),
+    orderby: str = Query(DEFAULT_ORDERBY, description="OData $orderby"),
+):
+    """
+    Convenience endpoint if you ever want to lazy-load one industry at a time.
+    """
+    tkeys = INDUSTRY_TABLE_MAP.get(industry_key)
+    if not tkeys:
+        return JSONResponse(status_code=200, content={"ok": False, "status": 404, "error": "Unknown industry_key"})
+
+    blocks: Dict[str, Any] = {}
+    await (asyncio.gather(*(asyncio.create_task(asyncio.sleep(0)))))  # no-op (keeps style consistent)
+
+    # reuse the same logic as in industry_updates (inline)
+    def _created_key(item: dict) -> str:
+        return item.get("createdOn") or ""
+
+    results = await asyncio.gather(
+        *[fetch_table_cards(table_key=tk, top=top, orderby=orderby) for tk in tkeys],
+        return_exceptions=True,
+    )
+
+    combined: List[dict] = []
+    tables_meta: List[dict] = []
+
+    for tk, result in zip(tkeys, results):
+        if isinstance(result, Exception):
+            tables_meta.append({"table_key": tk, "ok": False, "error": str(result)})
+            continue
+
+        if not result.get("ok"):
+            tables_meta.append({
+                "table_key": tk,
+                "ok": False,
+                "status": result.get("status"),
+                "error": result.get("error"),
+            })
+            continue
+
+        tables_meta.append({
+            "table_key": tk,
+            "table_name": result.get("table_name"),
+            "logical": result.get("logical"),
+            "count_cards": result.get("count_cards"),
+            "ok": True,
+        })
+        combined.extend(result.get("items", []))
+
+    combined.sort(key=_created_key, reverse=True)
+
+    return {
+        "ok": True,
+        "industry": industry_key,
+        "industry_name": INDUSTRY_DISPLAY.get(industry_key, industry_key),
+        "tables": tables_meta,
+        "count_cards": len(combined),
+        "items": combined,
+        "top": top,
+        "orderby": orderby,
+    }
 
 
 # ============================================================
@@ -572,7 +702,7 @@ async def metadata():
         except Exception:
             es = ""
         out.append({"table_key": k, "logical": logical, "entity_set": es})
-    return {"ok": True, "tables": out}
+    return {"ok": True, "tables": out, "industries": INDUSTRY_TABLE_MAP}
 
 
 @app.get("/api/v1/describe", summary="Resolve entity set & return one sample row")
