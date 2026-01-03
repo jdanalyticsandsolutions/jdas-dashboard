@@ -15,8 +15,8 @@ async function fetchJSON(path, { method = "GET", body = null, timeoutMs = 15000 
       headers: { "Accept": "application/json" },
       signal: ac.signal
     });
-    // Backend always returns 200, even on upstream errors (ok:false),
-    // so we only error on non-2xx here.
+
+    // Backend returns 200 even when ok:false, so only hard-fail non-2xx here.
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${text.slice(0,300)}`);
@@ -27,50 +27,122 @@ async function fetchJSON(path, { method = "GET", body = null, timeoutMs = 15000 
   }
 }
 
-// ---------- normalize to rows ----------
-function toRows(data, { allowEmpty = true } = {}) {
-  // old behavior: endpoint returned an array
-  if (Array.isArray(data)) return data;
+// ---------- helpers ----------
+function isObj(x){ return x && typeof x === "object" && !Array.isArray(x); }
 
-  // new behavior: { ok, value: [] } or { ok:false, error }
-  if (data && typeof data === "object") {
+// Summary endpoint shape: { ok:true, blocks:{ key:{ ok, items:[...] } } }
+function toSummaryBlocks(data){
+  if (!isObj(data)) return null;
+  if (data.ok !== true) return null;
+  if (!isObj(data.blocks)) return null;
+  return data.blocks;
+}
+
+// Raw table endpoint shape: { ok:true, value:[...] }
+function toRows(data, { allowEmpty = true } = {}){
+  if (Array.isArray(data)) return data;
+  if (isObj(data)) {
     if (data.ok === true && Array.isArray(data.value)) return data.value;
-    if (data.ok === false) {
-      console.warn("API returned ok:false", data);
-      return allowEmpty ? [] : [];
-    }
+    if (data.ok === false) return allowEmpty ? [] : [];
   }
-  console.warn("Unexpected API payload shape:", data);
   return allowEmpty ? [] : [];
 }
 
-// ---------- Public loaders (fixed paths) ----------
-async function getRows(path) {
-  const data = await fetchJSON(path);
+function encodeQS(params){
+  const out = [];
+  for (const [k,v] of Object.entries(params || {})){
+    if (v === undefined || v === null || v === "") continue;
+    out.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  }
+  return out.length ? `?${out.join("&")}` : "";
+}
+
+// ---------- Public loaders (NEW APP paths) ----------
+async function getRawTable(tableKey, { top = 25, orderby = "createdon desc", extra = null, timeoutMs = 20000 } = {}) {
+  // extra is optional raw OData append (advanced). Example: "$filter=..."
+  // Your backend expects it as "extra" (already appended server-side).
+  const qs = encodeQS({ top, orderby, extra });
+  const data = await fetchJSON(`/api/v1/raw/${encodeURIComponent(tableKey)}${qs}`, { timeoutMs });
   return toRows(data);
 }
 
-const api = {
-  // NOTE: this route doesn't exist in your backend TABLES yet.
-  // Either implement it server-side or comment out here to avoid 404s.
-  // companyInvestments: (top=5000)=> getRows(`/api/company-investments?top=${encodeURIComponent(top)}`),
+async function getIndustrySummary({ top = 10, orderby = "createdon desc", timeoutMs = 25000 } = {}) {
+  const qs = encodeQS({ top, orderby });
+  const data = await fetchJSON(`/api/v1/summary/industry-updates${qs}`, { timeoutMs });
 
-  bankruptcies: (top=500) => getRows(`/api/bankruptcies?top=${encodeURIComponent(top)}&nocache=1`),
+  const blocks = toSummaryBlocks(data);
+  if (!blocks) {
+    console.warn("Unexpected summary payload:", data);
+    return {};
+  }
+  return blocks;
+}
 
-  // FIX: backend path is /api/layoff-announcement (not /api/layoffs)
-  layoffs: (top=500) => getRows(`/api/layoff-announcement?top=${encodeURIComponent(top)}&nocache=1`),
+// ---------- Convenience: known tables/blocks ----------
+const tables = {
+  // general market
+  marketInsight:        "marketinsight",
+  marketOutlook:        "marketoutlook",
+  marketTrends:         "markettrendinsight",
+  marketAnalysis:       "marketanalysis",
 
-  tariffByCountry: (top=500) => getRows(`/api/tariff-by-country?top=${encodeURIComponent(top)}&nocache=1`),
-
-  health: () => fetchJSON(`/health`),
-  metadata: () => fetchJSON(`/api/metadata`),
-  docsUrl: `${API_BASE}/docs`
+  // industries
+  housingMarketInsight: "housingmarketinsight",   // real estate
+  vehicleSalesForecast: "vehiclesalesforecast",   // automotive
+  analyticsParadigm:    "analyticsparadigm",      // analytics & ops
+  aiIndustryInsight:    "aiindustryinsight"       // ai
 };
 
-// Expose
+// Blocks returned by /summary/industry-updates
+const summaryBlocks = [
+  "real_estate",
+  "automotive",
+  "analytics_ops",
+  "ai",
+  "market",
+  "outlook",
+  "trends",
+  "analysis"
+];
+
+// ---------- API object ----------
+const api = {
+  // health & meta
+  health:   () => fetchJSON(`/health`),
+  healthApi:() => fetchJSON(`/api/health`).catch(()=> fetchJSON(`/health`)),
+  docsUrl:  `${API_BASE}/docs`,
+  metadata: () => fetchJSON(`/api/v1/metadata`), // new metadata route
+
+  // list available table keys
+  rawTables: () => fetchJSON(`/api/v1/raw/tables`),
+
+  // raw table fetch (all columns)
+  raw: (tableKey, opts) => getRawTable(tableKey, opts),
+
+  // named raw helpers
+  marketInsight: (opts)        => getRawTable(tables.marketInsight, opts),
+  marketOutlook: (opts)        => getRawTable(tables.marketOutlook, opts),
+  marketTrends:  (opts)        => getRawTable(tables.marketTrends, opts),
+  marketAnalysis:(opts)        => getRawTable(tables.marketAnalysis, opts),
+
+  housingMarketInsight: (opts) => getRawTable(tables.housingMarketInsight, opts),
+  vehicleSalesForecast: (opts) => getRawTable(tables.vehicleSalesForecast, opts),
+  analyticsParadigm:    (opts) => getRawTable(tables.analyticsParadigm, opts),
+  aiIndustryInsight:    (opts) => getRawTable(tables.aiIndustryInsight, opts),
+
+  // one-call dashboard loader
+  industryUpdatesSummary: (opts) => getIndustrySummary(opts),
+
+  // expose known keys
+  tables,
+  summaryBlocks
+};
+
+// Expose globally (same style as your old app)
 window.JDAS = { API_BASE, api };
 
-// Optional: quick smoke test
-// api.health().then(console.log).catch(console.error);
-// api.metadata().then(console.table).catch(console.error);
+// Optional quick smoke tests:
+// api.healthApi().then(console.log).catch(console.error);
+// api.rawTables().then(console.log).catch(console.error);
+// api.industryUpdatesSummary({ top: 5 }).then(console.log).catch(console.error);
 </script>
