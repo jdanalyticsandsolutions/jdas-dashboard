@@ -5,381 +5,479 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>JD Analytics &amp; Solutions — Tailored Industry Updates</title>
 
-  <!-- bump ?v to bust cache when you change CSS -->
-  <link rel="stylesheet" href="/static/style.css?v=2026-01-03-a" />
-  <style>
-    .hidden{display:none!important}
-    .error{color:#ff99aa}
-    .pill{display:inline-flex;align-items:center;gap:.4rem;padding:.25rem .6rem;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);font-size:.85rem}
-    .stack{display:flex;flex-wrap:wrap;gap:.5rem}
-    .grid{display:grid;gap:12px}
-    @media(min-width: 980px){ .grid.cols2{grid-template-columns: 1fr 1fr} }
-    @media(min-width: 1200px){ .grid.cols4{grid-template-columns: repeat(4, 1fr)} }
-    .section-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-    .section-title h2{margin:0}
-    .hint{opacity:.8}
-    .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
-    .toolbar .left, .toolbar .right{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-    select, button, input{font:inherit}
-    .btn{cursor:pointer;border-radius:10px;padding:.55rem .8rem;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:inherit}
-    .btn:hover{background:rgba(255,255,255,.10)}
-    .btn.primary{border-color:rgba(0,160,255,.35)}
-    .badge{padding:.25rem .55rem;border-radius:999px;border:1px solid rgba(255,255,255,.14);font-size:.8rem}
-    .badge.ok{border-color:rgba(80,220,140,.55)}
-    .badge.err{border-color:rgba(255,120,140,.55)}
-    .cards{display:grid;gap:10px}
-    @media(min-width: 980px){ .cards{grid-template-columns: repeat(2, 1fr)} }
-    @media(min-width: 1200px){ .cards{grid-template-columns: repeat(3, 1fr)} }
-    .carditem{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);border-radius:14px;padding:12px}
-    .carditem .t{font-weight:650;margin:0 0 4px 0}
-    .carditem .d{opacity:.8;font-size:.85rem;margin:0 0 8px 0}
-    .carditem .b{opacity:.92;margin:0}
-    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
-    .empty{opacity:.75;padding:14px}
-    details{border-radius:12px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.03);padding:10px}
-    details summary{cursor:pointer}
-    pre{white-space:pre-wrap;word-wrap:break-word}
-    a{color:inherit}
-  </style>
+  <!-- Bump ?v to bust cache when you change CSS -->
+  <link rel="stylesheet" href="/static/style.css?v=2026-01-03-tabs-a" />
 </head>
 
 <body>
   <!-- Top Bar -->
   <header class="appbar">
     <div class="title">JD Analytics &amp; Solutions — Tailored Industry Updates</div>
-    <div class="right stack">
-      <span class="pill">Build: 2026-01-03a</span>
+    <div class="right">
+      <span class="pill" id="buildPill">Build: 2026-01-03 (tabs)</span>
       <span class="pill" id="apiPill">API: …</span>
     </div>
   </header>
 
   <main class="container">
-    <!-- Status -->
-    <section class="card" aria-label="Status">
-      <div class="toolbar">
-        <div class="left">
-          <span class="badge" id="statusBadge">Checking…</span>
-          <span id="statusText">Warming up API.</span>
+
+    <!-- Status / Controls Panel -->
+    <section class="panel" aria-label="Status and Controls">
+      <div class="panel-head">
+        <h2>Industry Updates</h2>
+        <div class="status">
+          <span class="badge ok" id="statusBadge">OK</span>
+          <span id="statusText">Ready.</span>
         </div>
-        <div class="right">
-          <span class="hint">Docs: <a id="docsLink" href="#" target="_blank" rel="noopener">/docs</a></span>
-          <button class="btn primary" id="refreshBtn">Refresh</button>
+      </div>
+
+      <div class="panel-body">
+        <div class="toolbar">
+          <div class="group">
+            <label class="pill" for="topSelect">
+              Rows per section
+              <select id="topSelect" style="margin-left:.5rem">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+              </select>
+            </label>
+
+            <label class="pill" for="viewSelect">
+              View
+              <select id="viewSelect" style="margin-left:.5rem">
+                <option value="cards" selected>Cards</option>
+                <option value="raw">Raw JSON (debug)</option>
+              </select>
+            </label>
+
+            <span class="pill">Sort: <span class="mono">createdon desc</span></span>
+          </div>
+
+          <div class="group">
+            <span class="pill">Endpoint: <span class="mono">/api/v1/summary/industry-updates</span></span>
+            <span class="pill">Docs: <a id="docsLink" href="#" target="_blank" rel="noopener">/docs</a></span>
+            <button class="btn primary" id="refreshBtn" type="button">Refresh</button>
+          </div>
         </div>
+
+        <!-- Industry Tabs -->
+        <div class="tabs" id="industryTabs" aria-label="Industry tabs"></div>
+
+        <!-- Industry Views (subtabs + cards render here) -->
+        <div id="industryViews" aria-live="polite"></div>
+
+        <!-- Debug -->
+        <div class="view" id="debugView" style="margin-top:12px; display:none;">
+          <div class="subtabs" style="justify-content:space-between; align-items:center;">
+            <span class="pill">Raw Payload (Debug)</span>
+          </div>
+          <details open>
+            <summary>Show JSON</summary>
+            <pre class="mono" id="rawJson">(loading)</pre>
+          </details>
+        </div>
+
       </div>
     </section>
 
-    <!-- Controls -->
-    <section class="card" aria-label="Controls">
-      <div class="toolbar">
-        <div class="left">
-          <label class="pill" for="topSelect">Rows per section
-            <select id="topSelect" style="margin-left:.5rem">
-              <option value="5">5</option>
-              <option value="10" selected>10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-            </select>
-          </label>
-
-          <label class="pill" for="viewSelect">View
-            <select id="viewSelect" style="margin-left:.5rem">
-              <option value="cards" selected>Cards</option>
-              <option value="raw">Raw JSON (debug)</option>
-            </select>
-          </label>
-
-          <span class="pill">Sort: <span class="mono">createdon desc</span></span>
-        </div>
-
-        <div class="right">
-          <span class="pill">Endpoint: <span class="mono">/api/v1/summary/industry-updates</span></span>
-        </div>
-      </div>
-    </section>
-
-    <!-- INDUSTRY: 4-up grid -->
-    <section class="card" aria-label="Industry Updates">
-      <div class="section-title">
-        <h2 class="card-title">Industry Updates</h2>
-        <span class="hint">Latest records by section (Dataverse raw — all columns)</span>
-      </div>
-
-      <div class="grid cols4" style="margin-top:12px">
-        <div>
-          <div class="section-title">
-            <h3 style="margin:0">Real Estate</h3>
-            <span class="hint" id="count_real_estate"></span>
-          </div>
-          <div id="real_estate" class="cards"></div>
-        </div>
-
-        <div>
-          <div class="section-title">
-            <h3 style="margin:0">Automotive</h3>
-            <span class="hint" id="count_automotive"></span>
-          </div>
-          <div id="automotive" class="cards"></div>
-        </div>
-
-        <div>
-          <div class="section-title">
-            <h3 style="margin:0">Business Analytics &amp; Ops</h3>
-            <span class="hint" id="count_analytics_ops"></span>
-          </div>
-          <div id="analytics_ops" class="cards"></div>
-        </div>
-
-        <div>
-          <div class="section-title">
-            <h3 style="margin:0">AI Developments</h3>
-            <span class="hint" id="count_ai"></span>
-          </div>
-          <div id="ai" class="cards"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- MARKET: 2x2 grid -->
-    <section class="card" aria-label="Market Updates">
-      <div class="section-title">
-        <h2 class="card-title">Market &amp; Outlook</h2>
-        <span class="hint">General market sections (insights, outlook, trends, analysis)</span>
-      </div>
-
-      <div class="grid cols2" style="margin-top:12px">
-        <div>
-          <div class="section-title">
-            <h3 style="margin:0">Market Insight</h3>
-            <span class="hint" id="count_market"></span>
-          </div>
-          <div id="market" class="cards"></div>
-        </div>
-
-        <div>
-          <div class="section-title">
-            <h3 style="margin:0">Market Outlook</h3>
-            <span class="hint" id="count_outlook"></span>
-          </div>
-          <div id="outlook" class="cards"></div>
-        </div>
-
-        <div>
-          <div class="section-title">
-            <h3 style="margin:0">Market Trends</h3>
-            <span class="hint" id="count_trends"></span>
-          </div>
-          <div id="trends" class="cards"></div>
-        </div>
-
-        <div>
-          <div class="section-title">
-            <h3 style="margin:0">Market Analysis</h3>
-            <span class="hint" id="count_analysis"></span>
-          </div>
-          <div id="analysis" class="cards"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Debug panel -->
-    <section class="card" aria-label="Debug" id="debugCard" style="display:none">
-      <div class="section-title">
-        <h2 class="card-title">Raw Payload (Debug)</h2>
-        <span class="hint">Useful while column names are still evolving</span>
-      </div>
-      <details style="margin-top:10px" open>
-        <summary>Show JSON</summary>
-        <pre class="mono" id="rawJson">(loading)</pre>
-      </details>
-    </section>
-
-    <div class="spacer"></div>
   </main>
 
+  <!-- ========== Config (Wix embedding) ==========
+       If this page is embedded in Wix and your API is on Render,
+       uncomment and set the backend URL:
+  <script>window.API_BASE = "https://jdas-backend.onrender.com";</script>
+  ============================================ -->
+
+  <!-- app.js (tabs + subtabs renderer) -->
   <script>
-    // ---------- API base (same-origin) ----------
-    const API_BASE = `${location.protocol}//${location.host}`;
-    const apiPill  = document.getElementById("apiPill");
-    if (apiPill) apiPill.textContent = `API: ${API_BASE}`;
-    const docsLink = document.getElementById("docsLink");
-    if (docsLink) docsLink.href = `${API_BASE}/docs`;
+  /* ======================================
+     JDAS Tailored Industry Updates — app.js
+     Tabs (Industry) + Subtabs (Sections)
+     Matches style.css: .tabs/.tab + .subtabs/.subtab + .view/.active + .cards/.carditem
+     ====================================== */
 
-    // ---------- Refs ----------
-    const $ = s => document.querySelector(s);
-    const statusB   = $("#statusBadge");
-    const statusT   = $("#statusText");
-    const refreshBtn= $("#refreshBtn");
-    const topSelect = $("#topSelect");
-    const viewSelect= $("#viewSelect");
-    const debugCard = $("#debugCard");
-    const rawJson   = $("#rawJson");
+  (() => {
+    "use strict";
 
-    const BLOCK_IDS = ["real_estate","automotive","analytics_ops","ai","market","outlook","trends","analysis"];
+    /* ---------- API base ---------- */
+    const API_BASE =
+      (window.API_BASE && String(window.API_BASE).trim()) ||
+      (document.documentElement?.dataset?.apiBase && String(document.documentElement.dataset.apiBase).trim()) ||
+      `${location.protocol}//${location.host}`;
 
-    function setStatus(kind, text){
-      statusB?.classList.remove("ok","err");
-      if (kind === "ok")  statusB?.classList.add("ok");
-      if (kind === "err") statusB?.classList.add("err");
-      if (statusB) statusB.textContent = (kind==="ok" ? "OK" : kind==="err" ? "Error" : "Loading…");
-      if (statusT) statusT.textContent = text || "";
-    }
+    /* ---------- Helpers ---------- */
+    const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
 
-    async function fetchJSON(path){
-      const url = `${API_BASE}${path}`;
-      const res = await fetch(url, { cache:"no-store", headers:{ "Accept":"application/json" }});
-      if (!res.ok){
-        const txt = await res.text().catch(()=> "");
-        throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${txt.slice(0,300)}`);
+    function buildQS(params) {
+      if (!params) return "";
+      const usp = new URLSearchParams();
+      for (const [k, v] of Object.entries(params)) {
+        if (v === undefined || v === null || v === "") continue;
+        usp.set(k, String(v));
       }
-      return res.json();
+      const s = usp.toString();
+      return s ? `?${s}` : "";
     }
 
-    function escapeHTML(s){
+    function escapeHtml(s) {
       return String(s ?? "")
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;")
-        .replaceAll('"',"&quot;")
-        .replaceAll("'","&#39;");
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
     }
 
-    function pickTitle(row){
-      // Try common title-like fields; otherwise show primary id-ish key
-      const candidates = [
-        "jdas_title","jdas_headline","jdas_name","name","title","subject"
-      ];
-      for (const k of candidates){
-        if (row && row[k]) return String(row[k]);
+    function setStatus(kind, text) {
+      const badge = document.getElementById("statusBadge");
+      const label = document.getElementById("statusText");
+      if (badge) {
+        badge.classList.remove("ok", "err");
+        badge.classList.add(kind === "ok" ? "ok" : "err");
+        badge.textContent = kind === "ok" ? "OK" : "ERR";
       }
-      // fall back to first string field
-      if (row && typeof row === "object"){
-        for (const [k,v] of Object.entries(row)){
-          if (typeof v === "string" && v.trim()) return v;
+      if (label) label.textContent = text || "";
+    }
+
+    /* ---------- Fetch ---------- */
+    async function fetchJSON(path, { method = "GET", body = null, timeoutMs = 20000 } = {}) {
+      const url = `${API_BASE}${path}`;
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(new DOMException("Timeout", "AbortError")), timeoutMs);
+
+      try {
+        const hasBody = body !== null && body !== undefined;
+
+        const res = await fetch(url, {
+          method,
+          cache: "no-store",
+          signal: ac.signal,
+          headers: {
+            "Accept": "application/json",
+            ...(hasBody ? { "Content-Type": "application/json" } : {})
+          },
+          body: hasBody ? (typeof body === "string" ? body : JSON.stringify(body)) : null
+        });
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${text.slice(0, 500)}`);
         }
+
+        return await res.json();
+      } finally {
+        clearTimeout(timer);
       }
-      return "Update";
     }
 
-    function pickBody(row){
-      const candidates = [
-        "jdas_summary","jdas_description","summary","description","jdas_notes","notes"
-      ];
-      for (const k of candidates){
-        if (row && row[k]) return String(row[k]);
+    /* ---------- Normalizers ---------- */
+    function asSummaryBlocks(payload) {
+      if (!isObj(payload) || payload.ok !== true || !isObj(payload.blocks)) return {};
+      return payload.blocks;
+    }
+
+    /* ---------- API ---------- */
+    async function getIndustrySummary({ top = 10, orderby = "createdon desc", timeoutMs = 25000 } = {}) {
+      const qs = buildQS({ top, orderby });
+      const data = await fetchJSON(`/api/v1/summary/industry-updates${qs}`, { timeoutMs });
+      return asSummaryBlocks(data);
+    }
+
+    /* ---------- UI Model ---------- */
+    const INDUSTRIES = Object.freeze([
+      { key: "real_estate",   label: "Real Estate" },
+      { key: "automotive",    label: "Automotive" },
+      { key: "analytics_ops", label: "Business Analytics & Ops" },
+      { key: "ai",            label: "AI Developments" },
+      { key: "market",        label: "Market Insight" },
+      { key: "outlook",       label: "Market Outlook" },
+      { key: "trends",        label: "Market Trends" },
+      { key: "analysis",      label: "Market Analysis" }
+    ]);
+
+    const FIELD = Object.freeze({
+      title: ["jdas_title","jdas_headline","jdas_name","name","title","subject","topic","headline"],
+      desc:  ["jdas_summary","jdas_description","summary","description","detail","subtitle"],
+      body:  ["body","jdas_notes","notes","content","text","insight"],
+      date:  ["createdon","modifiedon","jdas_date","date","timestamp"]
+    });
+
+    function pick(obj, keys) {
+      for (const k of keys) {
+        const v = obj?.[k];
+        if (v !== undefined && v !== null && String(v).trim() !== "") return v;
       }
       return "";
     }
 
-    function pickDate(row){
-      const d = row?.createdon || row?.modifiedon || row?.jdas_date || row?.date;
-      if (!d) return "";
-      const dt = new Date(d);
-      if (isNaN(dt.getTime())) return String(d);
-      return dt.toLocaleString();
+    function formatDate(v) {
+      if (!v) return "";
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return String(v);
+      return d.toLocaleString();
     }
 
-    function renderCards(blockId, items){
-      const mount = document.getElementById(blockId);
-      const countEl = document.getElementById(`count_${blockId}`);
-      if (!mount) return;
+    function getSubtabKeys(items) {
+      // Use unique titles as subtabs (matches your current data structure)
+      const titles = items
+        .map(x => String(pick(x, FIELD.title) || "").trim())
+        .filter(Boolean);
+      return [...new Set(titles)];
+    }
 
-      if (!Array.isArray(items) || items.length === 0){
-        mount.innerHTML = `<div class="empty">No recent records.</div>`;
-        if (countEl) countEl.textContent = "";
-        return;
+    /* ---------- Rendering ---------- */
+    function renderShell() {
+      const tabsEl = document.getElementById("industryTabs");
+      const viewsEl = document.getElementById("industryViews");
+
+      tabsEl.innerHTML = "";
+      viewsEl.innerHTML = "";
+
+      for (const ind of INDUSTRIES) {
+        // top tab
+        const tab = document.createElement("button");
+        tab.type = "button";
+        tab.className = "tab";
+        tab.textContent = ind.label;
+        tab.dataset.industry = ind.key;
+        tab.setAttribute("aria-selected", "false");
+        tabsEl.appendChild(tab);
+
+        // view container
+        const view = document.createElement("div");
+        view.className = "view";
+        view.dataset.industryView = ind.key;
+
+        const subtabs = document.createElement("div");
+        subtabs.className = "subtabs";
+        subtabs.dataset.subtabs = ind.key;
+
+        const content = document.createElement("div");
+        content.dataset.content = ind.key;
+
+        view.appendChild(subtabs);
+        view.appendChild(content);
+        viewsEl.appendChild(view);
       }
+    }
 
-      if (countEl) countEl.textContent = `${items.length} shown`;
+    function setActiveIndustry(industryKey) {
+      document.querySelectorAll(".tab").forEach(btn => {
+        btn.setAttribute("aria-selected", btn.dataset.industry === industryKey ? "true" : "false");
+      });
+      document.querySelectorAll(".view").forEach(v => {
+        v.classList.toggle("active", v.dataset.industryView === industryKey);
+      });
+    }
 
-      mount.innerHTML = items.map(row => {
-        const t = pickTitle(row);
-        const d = pickDate(row);
-        const b = pickBody(row);
+    function setActiveSubtab(industryKey, subtabLabel) {
+      document.querySelectorAll(`.subtabs[data-subtabs="${industryKey}"] .subtab`).forEach(btn => {
+        btn.setAttribute("aria-selected", btn.dataset.subtab === subtabLabel ? "true" : "false");
+      });
+    }
+
+    function renderCards(items) {
+      if (!items.length) return `<div class="empty">No records found.</div>`;
+
+      const cards = items.map((row) => {
+        const t = pick(row, FIELD.title) || "Update";
+        const desc = pick(row, FIELD.desc);
+        const body = pick(row, FIELD.body);
+        const date = formatDate(pick(row, FIELD.date));
+
         return `
           <div class="carditem">
-            <div class="t">${escapeHTML(t)}</div>
-            <div class="d">${escapeHTML(d)}</div>
-            ${b ? `<div class="b">${escapeHTML(b).slice(0,260)}</div>` : ``}
+            <div class="t">${escapeHtml(t)}</div>
+            ${date ? `<div class="d">${escapeHtml(date)}</div>` : ``}
+            ${desc ? `<div class="d">${escapeHtml(desc)}</div>` : ``}
+            ${body ? `<div class="b">${escapeHtml(String(body)).slice(0, 320)}</div>` : ``}
           </div>
-        `;
+        `.trim();
       }).join("");
+
+      return `<div class="cards">${cards}</div>`;
     }
 
-    function clearAll(){
-      for (const id of BLOCK_IDS){
-        const el = document.getElementById(id);
-        const countEl = document.getElementById(`count_${id}`);
-        if (el) el.innerHTML = `<div class="empty">Loading…</div>`;
-        if (countEl) countEl.textContent = "";
-      }
-    }
+    function renderIndustry(state, industryKey) {
+      const block = state.blocks?.[industryKey];
+      const items = (block && Array.isArray(block.items)) ? block.items : [];
 
-    async function loadSummary(){
-      const top = parseInt(topSelect?.value || "10", 10);
-      clearAll();
-      setStatus("", "Loading updates…");
+      const subtabsEl = document.querySelector(`.subtabs[data-subtabs="${industryKey}"]`);
+      const contentEl = document.querySelector(`[data-content="${industryKey}"]`);
+      if (!subtabsEl || !contentEl) return;
 
-      const data = await fetchJSON(`/api/v1/summary/industry-updates?top=${top}`);
-
-      if (!data || data.ok !== true){
-        setStatus("err", "API returned an error payload.");
-        if (rawJson) rawJson.textContent = JSON.stringify(data, null, 2);
+      if (!items.length) {
+        subtabsEl.innerHTML = "";
+        contentEl.innerHTML = `<div class="empty">No records found.</div>`;
         return;
       }
 
-      const blocks = data.blocks || {};
-      for (const id of BLOCK_IDS){
-        const blk = blocks[id];
-        renderCards(id, blk?.items || []);
+      const keys = getSubtabKeys(items);
+
+      // If no usable subtab keys, render all
+      if (!keys.length) {
+        subtabsEl.innerHTML = "";
+        contentEl.innerHTML = renderCards(items);
+        return;
       }
 
-      // Debug toggle
-      const view = viewSelect?.value || "cards";
-      if (debugCard){
-        debugCard.style.display = (view === "raw") ? "block" : "none";
-      }
-      if (rawJson){
-        rawJson.textContent = JSON.stringify(data, null, 2);
-      }
+      // Build subtabs
+      subtabsEl.innerHTML = keys.map((label, idx) => {
+        const selected = idx === 0 ? "true" : "false";
+        return `
+          <button type="button"
+                  class="subtab"
+                  data-industry="${escapeHtml(industryKey)}"
+                  data-subtab="${escapeHtml(label)}"
+                  aria-selected="${selected}">
+            ${escapeHtml(label)}
+          </button>
+        `.trim();
+      }).join("");
 
-      setStatus("ok", "Loaded latest updates.");
+      // Default: first subtab bucket
+      const first = keys[0];
+      state.activeSubtabs[industryKey] = first;
+      const bucket = items.filter(x => String(pick(x, FIELD.title) || "").trim() === first);
+      contentEl.innerHTML = renderCards(bucket);
     }
 
-    // ---------- Health warmup (try /api/health then /health) ----------
-    async function warmup(){
-      for (let i=0;i<6;i++){
-        try {
-          const j = await fetchJSON("/api/health");
-          if (j && j.ok){ setStatus("ok","API ready."); return; }
-        } catch {}
-        try {
-          const j2 = await fetchJSON("/health");
-          if (j2 && j2.ok){ setStatus("ok","API ready."); return; }
-        } catch {}
-        setStatus("", "Warming API…");
-        await new Promise(r=>setTimeout(r,4000));
-      }
-      setStatus("err","API did not warm up (yet). Try Refresh.");
+    function bindEvents(state) {
+      const tabsEl = document.getElementById("industryTabs");
+      const viewsEl = document.getElementById("industryViews");
+      const refreshBtn = document.getElementById("refreshBtn");
+      const topSelect = document.getElementById("topSelect");
+      const viewSelect = document.getElementById("viewSelect");
+      const debugView = document.getElementById("debugView");
+      const rawJson = document.getElementById("rawJson");
+
+      tabsEl.addEventListener("click", (e) => {
+        const btn = e.target.closest(".tab");
+        if (!btn) return;
+        state.activeIndustry = btn.dataset.industry;
+        setActiveIndustry(state.activeIndustry);
+      });
+
+      viewsEl.addEventListener("click", (e) => {
+        const btn = e.target.closest(".subtab");
+        if (!btn) return;
+
+        const industryKey = btn.dataset.industry;
+        const subtabLabel = btn.dataset.subtab;
+
+        state.activeIndustry = industryKey;
+        state.activeSubtabs[industryKey] = subtabLabel;
+
+        setActiveIndustry(industryKey);
+        setActiveSubtab(industryKey, subtabLabel);
+
+        const items = state.blocks?.[industryKey]?.items || [];
+        const bucket = items.filter(x => String(pick(x, FIELD.title) || "").trim() === subtabLabel);
+        const contentEl = document.querySelector(`[data-content="${industryKey}"]`);
+        if (contentEl) contentEl.innerHTML = renderCards(bucket);
+      });
+
+      refreshBtn?.addEventListener("click", async () => {
+        await loadDashboard(state);
+      });
+
+      topSelect?.addEventListener("change", async () => {
+        await loadDashboard(state);
+      });
+
+      viewSelect?.addEventListener("change", () => {
+        const mode = viewSelect.value;
+        if (debugView) debugView.style.display = (mode === "raw") ? "block" : "none";
+      });
+
+      // Expose debug refs
+      state._debug = { rawJson, debugView };
     }
 
-    // events
-    refreshBtn?.addEventListener("click", () => loadSummary().catch(err => {
-      console.error(err);
-      setStatus("err", "Failed to load updates.");
-    }));
+    async function loadDashboard(state) {
+      const apiPill = document.getElementById("apiPill");
+      const docsLink = document.getElementById("docsLink");
+      const topSelect = document.getElementById("topSelect");
+      const viewSelect = document.getElementById("viewSelect");
 
-    topSelect?.addEventListener("change", () => loadSummary().catch(console.error));
-    viewSelect?.addEventListener("change", () => {
-      if (debugCard){
-        debugCard.style.display = (viewSelect.value === "raw") ? "block" : "none";
+      if (apiPill) apiPill.textContent = `API: ${API_BASE}`;
+      if (docsLink) docsLink.href = `${API_BASE}/docs`;
+
+      // Loading
+      setStatus("ok", "Loading latest updates…");
+      for (const ind of INDUSTRIES) {
+        const contentEl = document.querySelector(`[data-content="${ind.key}"]`);
+        if (contentEl) contentEl.innerHTML = `<div class="loading">Loading…</div>`;
+        const subtabsEl = document.querySelector(`.subtabs[data-subtabs="${ind.key}"]`);
+        if (subtabsEl) subtabsEl.innerHTML = "";
       }
+
+      const top = parseInt(topSelect?.value || "10", 10);
+      const orderby = "createdon desc";
+
+      try {
+        const blocks = await getIndustrySummary({ top, orderby });
+        state.blocks = blocks;
+
+        // Render each industry view
+        for (const ind of INDUSTRIES) {
+          renderIndustry(state, ind.key);
+        }
+
+        // Keep active industry sane
+        if (!state.activeIndustry) state.activeIndustry = INDUSTRIES[0].key;
+        setActiveIndustry(state.activeIndustry);
+
+        // Debug JSON
+        if (state._debug?.rawJson && viewSelect?.value === "raw") {
+          state._debug.rawJson.textContent = JSON.stringify({ ok:true, blocks }, null, 2);
+        }
+
+        setStatus("ok", "Loaded latest updates.");
+      } catch (err) {
+        console.error(err);
+        setStatus("err", "Failed to load updates. Check API_BASE / endpoint.");
+
+        for (const ind of INDUSTRIES) {
+          const contentEl = document.querySelector(`[data-content="${ind.key}"]`);
+          if (contentEl) contentEl.innerHTML = `<div class="empty">Error loading data.</div>`;
+        }
+        if (state._debug?.rawJson) state._debug.rawJson.textContent = String(err?.message || err);
+      }
+    }
+
+    // Boot
+    document.addEventListener("DOMContentLoaded", async () => {
+      const state = {
+        blocks: {},
+        activeIndustry: "real_estate",
+        activeSubtabs: Object.create(null),
+        _debug: null
+      };
+
+      renderShell();
+      bindEvents(state);
+      setActiveIndustry(state.activeIndustry);
+
+      // Default debug view hidden
+      const debugView = document.getElementById("debugView");
+      if (debugView) debugView.style.display = "none";
+
+      // Initial load
+      await loadDashboard(state);
+
+      // Expose reload for manual testing
+      window.JDAS_UI = {
+        reload: (opts) => loadDashboard(state, opts),
+        get state() { return state; }
+      };
+
+      console.log("[JDAS] API_BASE:", API_BASE);
     });
 
-    // boot
-    (async ()=>{
-      await warmup();
-      await loadSummary();
-    })();
+  })();
   </script>
 </body>
 </html>
