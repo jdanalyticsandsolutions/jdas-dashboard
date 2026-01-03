@@ -1,20 +1,20 @@
 /* =========================================================
-   JDAS — Tailored Industry Updates (Smoother + Framed UI)
-   Goals:
-   - Primary tabs feel dominant (navy)
-   - Subcategory buttons are EASY to read (dark text, light pills)
-   - Everything is framed/paneled for clarity
-   - Accessible focus + hover states
+   JDAS — Tailored Industry Updates
+   Visual Structure:
+   - Main Tabs = Industry
+   - Subtabs = Dataverse Tables (for selected Industry)
+   CSS can't change data order, but it WILL:
+   - Make tabs/subtabs look organized & framed
+   - Prevent "jumbled" button clusters
+   - Improve readability + spacing + wrapping
    ========================================================= */
 
-/* -------------------------
-   Theme tokens
-------------------------- */
 :root{
-  --bg: #f2f4f7;
+  --bg: #eef2f6;
   --panel: #ffffff;
-  --panel-2:#f7f9fc;
+  --panel-2: #f7f9fc;
 
+  --navy-950:#070c16;
   --navy-900:#0b1220;
   --navy-800:#101a2b;
   --navy-700:#172338;
@@ -27,20 +27,20 @@
 
   --blue:#5a8dee;
   --blue-2:#3f78e6;
-
   --green:#28b37a;
-  --shadow: 0 10px 28px rgba(16,26,43,.12);
+
+  --shadow: 0 12px 30px rgba(16,26,43,.10);
 
   --r-xl: 18px;
   --r-lg: 14px;
   --r-md: 12px;
 
   --pad: 14px;
+  --gap: 10px;
 }
 
 /* -------------------------
-   Base page defaults
-   (safe even if embedded)
+   Base
 ------------------------- */
 html, body{
   background: var(--bg);
@@ -53,26 +53,23 @@ a{ color: var(--blue-2); }
 a:hover{ opacity:.9; }
 
 :focus-visible{
-  outline: 3px solid rgba(90,141,238,.45);
+  outline: 3px solid rgba(90,141,238,.40);
   outline-offset: 2px;
   border-radius: 10px;
 }
 
-/* Optional: if you have a main wrapper */
-.container,
-main,
-#app,
-.app{
+/* If you have a wrapper */
+.container, main, #app, .app{
   max-width: 1180px;
   margin: 0 auto;
+  padding: 12px;
 }
 
 /* -------------------------
-   Framing helpers (optional)
-   Wrap sections in these for even clearer separation:
-   <div class="frame"> ... </div>
+   GLOBAL FRAMING
+   Use this on any main blocks you already have
 ------------------------- */
-.frame{
+.panel{
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-xl);
@@ -81,37 +78,32 @@ main,
   margin: 12px 0;
 }
 
-.frame--tight{
-  padding: 10px;
-}
-
-.frame__title{
-  font-weight: 800;
-  color: var(--navy-900);
-  letter-spacing: .2px;
-  margin: 0 0 10px 0;
-}
-
 /* -------------------------
-   Primary Tabs (Industry)
+   INDUSTRY NAV (Main Tabs)
 ------------------------- */
 .tabs{
   display:flex;
   flex-wrap:wrap;
-  gap:10px;
-  margin: 10px 0 12px;
+  gap: var(--gap);
+
   padding: 12px;
-  background: linear-gradient(180deg, var(--navy-800), var(--navy-900));
-  border: 1px solid rgba(255,255,255,.10);
+  margin: 10px 0 14px;
+
   border-radius: var(--r-xl);
-  box-shadow: 0 10px 26px rgba(11,18,32,.18);
+  background: linear-gradient(180deg, var(--navy-800), var(--navy-950));
+  border: 1px solid rgba(255,255,255,.10);
+
+  box-shadow: 0 14px 34px rgba(7,12,22,.18);
 }
 
+/* Each industry button */
 .tab{
   cursor:pointer;
   user-select:none;
-  border-radius: 999px;
+  white-space: nowrap; /* keeps “Business Analytics & Ops” clean */
+
   padding: 10px 14px;
+  border-radius: 999px;
 
   background: rgba(255,255,255,.10);
   border: 1px solid rgba(255,255,255,.16);
@@ -122,7 +114,7 @@ main,
   letter-spacing: .2px;
 
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.10),
+    inset 0 1px 0 rgba(255,255,255,.12),
     0 6px 14px rgba(0,0,0,.18);
 
   transition:
@@ -149,38 +141,47 @@ main,
 }
 
 /* -------------------------
-   Subtabs (Subcategories)
-   Key change: LIGHT surface + DARK text for readability
+   SUBTABS STRIP (Tables for selected Industry)
+   Key: looks like a “Table chooser” module, not a pile of pills
 ------------------------- */
 .subtabs{
   display:flex;
   flex-wrap:wrap;
-  gap:10px;
+  gap: 8px;
 
-  /* framed strip */
   padding: 12px;
-  margin: 10px 0 14px;
+  margin: 0 0 14px;
+
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-xl);
-  box-shadow: 0 8px 22px rgba(16,26,43,.10);
+  box-shadow: 0 10px 24px rgba(16,26,43,.08);
 }
 
+/* Table buttons */
 .subtab{
   cursor:pointer;
-  border-radius: 999px;
+  user-select:none;
+
+  /* make wrapping consistent */
+  min-height: 34px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+
   padding: 8px 12px;
+  border-radius: 999px;
 
   background: var(--panel-2);
   border: 1px solid var(--border);
 
   color: var(--text);
-  font-weight: 800;
+  font-weight: 850;
   font-size: 12.5px;
 
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.80),
-    0 4px 10px rgba(16,26,43,.10);
+    inset 0 1px 0 rgba(255,255,255,.90),
+    0 4px 10px rgba(16,26,43,.08);
 
   transition:
     transform .08s ease,
@@ -191,25 +192,25 @@ main,
 
 .subtab:hover{
   transform: translateY(-1px);
-  background: #ffffff;
+  background: #fff;
   border-color: var(--border-2);
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.90),
-    0 8px 16px rgba(16,26,43,.12);
+    inset 0 1px 0 rgba(255,255,255,.95),
+    0 8px 16px rgba(16,26,43,.10);
 }
 
+/* Selected table */
 .subtab[aria-selected="true"]{
-  background: rgba(40,179,122,.12);
+  background: rgba(40,179,122,.14);
   border-color: rgba(40,179,122,.55);
   color: var(--navy-900);
 
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.85),
-    0 0 0 3px rgba(40,179,122,.18),
-    0 10px 22px rgba(16,26,43,.14);
+    inset 0 1px 0 rgba(255,255,255,.90),
+    0 0 0 3px rgba(40,179,122,.16),
+    0 10px 22px rgba(16,26,43,.12);
 }
 
-/* If you ever disable a subtab */
 .subtab[aria-disabled="true"],
 .subtab:disabled{
   opacity:.45;
@@ -218,15 +219,60 @@ main,
 }
 
 /* -------------------------
-   Content framing (cards / lists)
-   These help with "nothing is framed in"
-   Use if your view mode uses cards, rows, etc.
+   OPTIONAL: “Industry Section Frames”
+   (use when you render per-industry blocks)
+   Example:
+   <section class="industry-frame">
+     <div class="industry-header">...</div>
+     <div class="industry-subtabs">...</div>
+     <div class="industry-results">...</div>
+   </section>
 ------------------------- */
+.industry-frame{
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow);
+  padding: var(--pad);
+  margin: 14px 0;
+}
 
-/* A general results area wrapper (if you have one) */
-.results,
-.cards,
-.list{
+.industry-header{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.industry-title{
+  margin:0;
+  font-size: 16px;
+  font-weight: 950;
+  color: var(--navy-900);
+  letter-spacing: .2px;
+}
+
+.industry-desc{
+  margin:4px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.industry-subtabs{
+  margin: 8px 0 12px;
+  padding: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}
+
+/* -------------------------
+   RESULTS / CARDS FRAMING
+------------------------- */
+.results, .cards, .list{
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--r-xl);
@@ -234,25 +280,24 @@ main,
   padding: var(--pad);
 }
 
-/* Card grid (safe defaults) */
+/* Cards layout */
 .cards{
   display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
 }
 
-/* Individual card */
 .card{
-  background: #fff;
+  background:#fff;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   padding: 12px;
-  box-shadow: 0 8px 18px rgba(16,26,43,.10);
+  box-shadow: 0 8px 18px rgba(16,26,43,.08);
 }
 
-.card h3, .card .title{
-  margin: 0 0 6px 0;
-  font-weight: 900;
+.card .title, .card h3{
+  margin:0 0 6px 0;
+  font-weight: 950;
   color: var(--navy-900);
 }
 
@@ -263,19 +308,22 @@ main,
 }
 
 .card p{
-  margin: 0;
+  margin:0;
   color: var(--text);
   line-height: 1.35;
 }
 
 /* -------------------------
-   Mobile polish
+   MOBILE
 ------------------------- */
 @media (max-width: 520px){
-  .tabs, .subtabs{
-    padding: 10px;
-    gap: 8px;
-  }
+  .container, main, #app, .app{ padding: 10px; }
+
+  .tabs{ padding: 10px; gap: 8px; }
   .tab{ padding: 9px 12px; font-size: 12.5px; }
+
+  .subtabs{ padding: 10px; gap: 8px; }
   .subtab{ padding: 8px 11px; font-size: 12px; }
+
+  .cards{ grid-template-columns: 1fr; }
 }
