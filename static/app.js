@@ -1,148 +1,158 @@
 <script>
-// ---------- API base resolution ----------
-const API_BASE =
-  (window.API_BASE && String(window.API_BASE).trim())
-  || `${location.protocol}//${location.host}`;
+/* ======================================
+   JDAS Tailored Industry Updates — app.js
+   Clean + Efficient API client
+   ====================================== */
 
-// ---------- low-level fetch ----------
-async function fetchJSON(path, { method = "GET", body = null, timeoutMs = 15000 } = {}) {
-  const url = `${API_BASE}${path}`;
-  const ac = new AbortController();
-  const t = setTimeout(() => ac.abort(new DOMException("Timeout","AbortError")), timeoutMs);
-  try {
-    const res = await fetch(url, {
-      method, body, cache: "no-store",
-      headers: { "Accept": "application/json" },
-      signal: ac.signal
-    });
+(() => {
+  "use strict";
 
-    // Backend returns 200 even when ok:false, so only hard-fail non-2xx here.
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${text.slice(0,300)}`);
+  // ---- Configure API base ----
+  // Priority order:
+  //  1) window.API_BASE (set this in your HTML when embedding in Wix)
+  //  2) data-api-base attribute on <html> (optional)
+  //  3) same-origin fallback (works when serving UI from backend)
+  const API_BASE =
+    (window.API_BASE && String(window.API_BASE).trim()) ||
+    (document.documentElement?.dataset?.apiBase && String(document.documentElement.dataset.apiBase).trim()) ||
+    `${location.protocol}//${location.host}`;
+
+  // ---- Small utilities ----
+  const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
+
+  function buildQS(params) {
+    if (!params) return "";
+    const usp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v === undefined || v === null || v === "") continue;
+      usp.set(k, String(v));
     }
-    return await res.json();
-  } finally {
-    clearTimeout(t);
+    const s = usp.toString();
+    return s ? `?${s}` : "";
   }
-}
 
-// ---------- helpers ----------
-function isObj(x){ return x && typeof x === "object" && !Array.isArray(x); }
+  // ---- Fetch wrapper ----
+  async function fetchJSON(path, { method = "GET", body = null, timeoutMs = 15000 } = {}) {
+    const url = `${API_BASE}${path}`;
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(new DOMException("Timeout", "AbortError")), timeoutMs);
 
-// Summary endpoint shape: { ok:true, blocks:{ key:{ ok, items:[...] } } }
-function toSummaryBlocks(data){
-  if (!isObj(data)) return null;
-  if (data.ok !== true) return null;
-  if (!isObj(data.blocks)) return null;
-  return data.blocks;
-}
+    try {
+      const hasBody = body !== null && body !== undefined;
 
-// Raw table endpoint shape: { ok:true, value:[...] }
-function toRows(data, { allowEmpty = true } = {}){
-  if (Array.isArray(data)) return data;
-  if (isObj(data)) {
-    if (data.ok === true && Array.isArray(data.value)) return data.value;
-    if (data.ok === false) return allowEmpty ? [] : [];
+      const res = await fetch(url, {
+        method,
+        cache: "no-store",
+        signal: ac.signal,
+        headers: {
+          "Accept": "application/json",
+          ...(hasBody ? { "Content-Type": "application/json" } : {})
+        },
+        body: hasBody ? (typeof body === "string" ? body : JSON.stringify(body)) : null
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${text.slice(0, 500)}`);
+      }
+
+      // If server returns non-JSON unexpectedly, this will throw (good).
+      return await res.json();
+    } finally {
+      clearTimeout(timer);
+    }
   }
-  return allowEmpty ? [] : [];
-}
 
-function encodeQS(params){
-  const out = [];
-  for (const [k,v] of Object.entries(params || {})){
-    if (v === undefined || v === null || v === "") continue;
-    out.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  // ---- Response normalizers ----
+  // Summary endpoint: { ok:true, blocks:{ key:{ ok, items:[...] } } }
+  function asSummaryBlocks(payload) {
+    if (!isObj(payload) || payload.ok !== true || !isObj(payload.blocks)) return null;
+    return payload.blocks;
   }
-  return out.length ? `?${out.join("&")}` : "";
-}
 
-// ---------- Public loaders (NEW APP paths) ----------
-async function getRawTable(tableKey, { top = 25, orderby = "createdon desc", extra = null, timeoutMs = 20000 } = {}) {
-  // extra is optional raw OData append (advanced). Example: "$filter=..."
-  // Your backend expects it as "extra" (already appended server-side).
-  const qs = encodeQS({ top, orderby, extra });
-  const data = await fetchJSON(`/api/v1/raw/${encodeURIComponent(tableKey)}${qs}`, { timeoutMs });
-  return toRows(data);
-}
-
-async function getIndustrySummary({ top = 10, orderby = "createdon desc", timeoutMs = 25000 } = {}) {
-  const qs = encodeQS({ top, orderby });
-  const data = await fetchJSON(`/api/v1/summary/industry-updates${qs}`, { timeoutMs });
-
-  const blocks = toSummaryBlocks(data);
-  if (!blocks) {
-    console.warn("Unexpected summary payload:", data);
-    return {};
+  // Raw endpoint: { ok:true, value:[...] }  OR  [] (if you ever return arrays directly)
+  function asRows(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (isObj(payload) && payload.ok === true && Array.isArray(payload.value)) return payload.value;
+    return [];
   }
-  return blocks;
-}
 
-// ---------- Convenience: known tables/blocks ----------
-const tables = {
-  // general market
-  marketInsight:        "marketinsight",
-  marketOutlook:        "marketoutlook",
-  marketTrends:         "markettrendinsight",
-  marketAnalysis:       "marketanalysis",
+  // ---- API calls ----
+  async function getRawTable(tableKey, { top = 25, orderby = "createdon desc", extra = null, timeoutMs = 20000 } = {}) {
+    const qs = buildQS({ top, orderby, extra });
+    const data = await fetchJSON(`/api/v1/raw/${encodeURIComponent(tableKey)}${qs}`, { timeoutMs });
+    return asRows(data);
+  }
 
-  // industries
-  housingMarketInsight: "housingmarketinsight",   // real estate
-  vehicleSalesForecast: "vehiclesalesforecast",   // automotive
-  analyticsParadigm:    "analyticsparadigm",      // analytics & ops
-  aiIndustryInsight:    "aiindustryinsight"       // ai
-};
+  async function getIndustrySummary({ top = 10, orderby = "createdon desc", timeoutMs = 25000 } = {}) {
+    const qs = buildQS({ top, orderby });
+    const data = await fetchJSON(`/api/v1/summary/industry-updates${qs}`, { timeoutMs });
+    return asSummaryBlocks(data) || {};
+  }
 
-// Blocks returned by /summary/industry-updates
-const summaryBlocks = [
-  "real_estate",
-  "automotive",
-  "analytics_ops",
-  "ai",
-  "market",
-  "outlook",
-  "trends",
-  "analysis"
-];
+  // ---- Known tables/blocks ----
+  const tables = Object.freeze({
+    // general market
+    marketInsight:        "marketinsight",
+    marketOutlook:        "marketoutlook",
+    marketTrends:         "markettrendinsight",
+    marketAnalysis:       "marketanalysis",
 
-// ---------- API object ----------
-const api = {
-  // health & meta
-  health:   () => fetchJSON(`/health`),
-  healthApi:() => fetchJSON(`/api/health`).catch(()=> fetchJSON(`/health`)),
-  docsUrl:  `${API_BASE}/docs`,
-  metadata: () => fetchJSON(`/api/v1/metadata`), // new metadata route
+    // industries
+    housingMarketInsight: "housingmarketinsight",   // real estate
+    vehicleSalesForecast: "vehiclesalesforecast",   // automotive
+    analyticsParadigm:    "analyticsparadigm",      // analytics & ops
+    aiIndustryInsight:    "aiindustryinsight"       // ai
+  });
 
-  // list available table keys
-  rawTables: () => fetchJSON(`/api/v1/raw/tables`),
+  const summaryBlocks = Object.freeze([
+    "real_estate",
+    "automotive",
+    "analytics_ops",
+    "ai",
+    "market",
+    "outlook",
+    "trends",
+    "analysis"
+  ]);
 
-  // raw table fetch (all columns)
-  raw: (tableKey, opts) => getRawTable(tableKey, opts),
+  // ---- Public API object (kept compatible with your old pattern) ----
+  const api = Object.freeze({
+    // meta
+    API_BASE,
+    docsUrl: `${API_BASE}/docs`,
+    health:    () => fetchJSON(`/health`),
+    healthApi: () => fetchJSON(`/api/health`).catch(() => fetchJSON(`/health`)),
+    metadata:  () => fetchJSON(`/api/v1/metadata`),
+    rawTables: () => fetchJSON(`/api/v1/raw/tables`),
 
-  // named raw helpers
-  marketInsight: (opts)        => getRawTable(tables.marketInsight, opts),
-  marketOutlook: (opts)        => getRawTable(tables.marketOutlook, opts),
-  marketTrends:  (opts)        => getRawTable(tables.marketTrends, opts),
-  marketAnalysis:(opts)        => getRawTable(tables.marketAnalysis, opts),
+    // raw
+    raw: (tableKey, opts) => getRawTable(tableKey, opts),
 
-  housingMarketInsight: (opts) => getRawTable(tables.housingMarketInsight, opts),
-  vehicleSalesForecast: (opts) => getRawTable(tables.vehicleSalesForecast, opts),
-  analyticsParadigm:    (opts) => getRawTable(tables.analyticsParadigm, opts),
-  aiIndustryInsight:    (opts) => getRawTable(tables.aiIndustryInsight, opts),
+    // named helpers
+    marketInsight:        (opts) => getRawTable(tables.marketInsight, opts),
+    marketOutlook:        (opts) => getRawTable(tables.marketOutlook, opts),
+    marketTrends:         (opts) => getRawTable(tables.marketTrends, opts),
+    marketAnalysis:       (opts) => getRawTable(tables.marketAnalysis, opts),
 
-  // one-call dashboard loader
-  industryUpdatesSummary: (opts) => getIndustrySummary(opts),
+    housingMarketInsight: (opts) => getRawTable(tables.housingMarketInsight, opts),
+    vehicleSalesForecast: (opts) => getRawTable(tables.vehicleSalesForecast, opts),
+    analyticsParadigm:    (opts) => getRawTable(tables.analyticsParadigm, opts),
+    aiIndustryInsight:    (opts) => getRawTable(tables.aiIndustryInsight, opts),
 
-  // expose known keys
-  tables,
-  summaryBlocks
-};
+    // summary
+    industryUpdatesSummary: (opts) => getIndustrySummary(opts),
 
-// Expose globally (same style as your old app)
-window.JDAS = { API_BASE, api };
+    // keys
+    tables,
+    summaryBlocks
+  });
 
-// Optional quick smoke tests:
-// api.healthApi().then(console.log).catch(console.error);
-// api.rawTables().then(console.log).catch(console.error);
-// api.industryUpdatesSummary({ top: 5 }).then(console.log).catch(console.error);
+  // Expose globally
+  window.JDAS = Object.freeze({ API_BASE, api });
+
+  // Optional: quick log so you can confirm base in Wix vs backend
+  console.log("[JDAS] API_BASE:", API_BASE);
+
+})();
 </script>
