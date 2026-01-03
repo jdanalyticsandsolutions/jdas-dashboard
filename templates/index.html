@@ -6,7 +6,7 @@
   <title>JD Analytics &amp; Solutions — Tailored Industry Updates</title>
 
   <!-- Bump ?v to bust cache when you change CSS -->
-  <link rel="stylesheet" href="/static/style.css?v=2026-01-03-tabs-a" />
+  <link rel="stylesheet" href="/static/style.css?v=2026-01-03-tabs-final" />
 </head>
 
 <body>
@@ -14,7 +14,7 @@
   <header class="appbar">
     <div class="title">JD Analytics &amp; Solutions — Tailored Industry Updates</div>
     <div class="right">
-      <span class="pill" id="buildPill">Build: 2026-01-03 (tabs)</span>
+      <span class="pill" id="buildPill">Build: 2026-01-03 (industry→table)</span>
       <span class="pill" id="apiPill">API: …</span>
     </div>
   </header>
@@ -35,7 +35,7 @@
         <div class="toolbar">
           <div class="group">
             <label class="pill" for="topSelect">
-              Rows per section
+              Rows per table
               <select id="topSelect" style="margin-left:.5rem">
                 <option value="5">5</option>
                 <option value="10" selected>10</option>
@@ -62,10 +62,10 @@
           </div>
         </div>
 
-        <!-- Industry Tabs -->
+        <!-- Industry Tabs (Main) -->
         <div class="tabs" id="industryTabs" aria-label="Industry tabs"></div>
 
-        <!-- Industry Views (subtabs + cards render here) -->
+        <!-- Industry Views (Subtabs + Cards render here) -->
         <div id="industryViews" aria-live="polite"></div>
 
         <!-- Debug -->
@@ -78,42 +78,37 @@
             <pre class="mono" id="rawJson">(loading)</pre>
           </details>
         </div>
-
       </div>
     </section>
-
   </main>
 
   <!-- ========== Config (Wix embedding) ==========
-       If this page is embedded in Wix and your API is on Render,
-       uncomment and set the backend URL:
-  <script>window.API_BASE = "https://jdas-backend.onrender.com";</script>
+       If embedded in Wix and API is on Render, set:
+       <script>window.API_BASE = "https://jdas-backend.onrender.com";</script>
   ============================================ -->
 
-  <!-- app.js (tabs + subtabs renderer) -->
   <script>
-  /* ======================================
-     JDAS Tailored Industry Updates — app.js
-     Tabs (Industry) + Subtabs (Sections)
-     Matches style.css: .tabs/.tab + .subtabs/.subtab + .view/.active + .cards/.carditem
-     ====================================== */
+  /* =========================================================
+     JDAS Tailored Industry Updates — app.js (Industry -> Table)
+     Main tabs: Industry
+     Subtabs: Dataverse Table (per industry)
+     Filters using: row.table (logical name)
+     ========================================================= */
 
   (() => {
     "use strict";
 
-    /* ---------- API base ---------- */
     const API_BASE =
       (window.API_BASE && String(window.API_BASE).trim()) ||
       (document.documentElement?.dataset?.apiBase && String(document.documentElement.dataset.apiBase).trim()) ||
       `${location.protocol}//${location.host}`;
 
-    /* ---------- Helpers ---------- */
     const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
+    const norm = (s) => String(s || "").trim().toLowerCase();
 
     function buildQS(params) {
-      if (!params) return "";
       const usp = new URLSearchParams();
-      for (const [k, v] of Object.entries(params)) {
+      for (const [k, v] of Object.entries(params || {})) {
         if (v === undefined || v === null || v === "") continue;
         usp.set(k, String(v));
       }
@@ -141,29 +136,22 @@
       if (label) label.textContent = text || "";
     }
 
-    /* ---------- Fetch ---------- */
-    async function fetchJSON(path, { method = "GET", body = null, timeoutMs = 20000 } = {}) {
+    async function fetchJSON(path, { timeoutMs = 20000 } = {}) {
       const url = `${API_BASE}${path}`;
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(new DOMException("Timeout", "AbortError")), timeoutMs);
 
       try {
-        const hasBody = body !== null && body !== undefined;
-
         const res = await fetch(url, {
-          method,
+          method: "GET",
           cache: "no-store",
           signal: ac.signal,
-          headers: {
-            "Accept": "application/json",
-            ...(hasBody ? { "Content-Type": "application/json" } : {})
-          },
-          body: hasBody ? (typeof body === "string" ? body : JSON.stringify(body)) : null
+          headers: { "Accept": "application/json" }
         });
 
         if (!res.ok) {
           const text = await res.text().catch(() => "");
-          throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${text.slice(0, 500)}`);
+          throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${text.slice(0, 600)}`);
         }
 
         return await res.json();
@@ -172,36 +160,66 @@
       }
     }
 
-    /* ---------- Normalizers ---------- */
     function asSummaryBlocks(payload) {
       if (!isObj(payload) || payload.ok !== true || !isObj(payload.blocks)) return {};
       return payload.blocks;
     }
 
-    /* ---------- API ---------- */
     async function getIndustrySummary({ top = 10, orderby = "createdon desc", timeoutMs = 25000 } = {}) {
       const qs = buildQS({ top, orderby });
       const data = await fetchJSON(`/api/v1/summary/industry-updates${qs}`, { timeoutMs });
       return asSummaryBlocks(data);
     }
 
-    /* ---------- UI Model ---------- */
+    /* ✅ MAIN TABS (Industries) + ✅ SUBTABS (Tables) */
     const INDUSTRIES = Object.freeze([
-      { key: "real_estate",   label: "Real Estate" },
-      { key: "automotive",    label: "Automotive" },
-      { key: "analytics_ops", label: "Business Analytics & Ops" },
-      { key: "ai",            label: "AI Developments" },
-      { key: "market",        label: "Market Insight" },
-      { key: "outlook",       label: "Market Outlook" },
-      { key: "trends",        label: "Market Trends" },
-      { key: "analysis",      label: "Market Analysis" }
+      {
+        key: "real_estate",
+        label: "Real Estate",
+        tables: [
+          { key: "jdas_housingmarketinsight", label: "Housing Market Insight" },
+          { key: "jdas_marketoutlook",       label: "Market Outlook" }
+        ]
+      },
+      {
+        key: "automotive",
+        label: "Automotive",
+        tables: [
+          { key: "jdas_vehiclesalesforecast", label: "Vehicle Sales Forecast" }
+        ]
+      },
+      {
+        key: "analytics_ops",
+        label: "Business Analytics & Ops",
+        tables: [
+          { key: "jdas_analyticsparadigm", label: "Analytics Paradigm" }
+        ]
+      },
+      {
+        key: "ai",
+        label: "AI Developments",
+        tables: [
+          { key: "jdas_aiindustryinsight", label: "AI Industry Insight" }
+        ]
+      },
+      {
+        key: "market",
+        label: "Market Insight",
+        tables: [
+          { key: "jdas_marketinsight",      label: "Market Insight" },
+          { key: "jdas_markettrendinsight", label: "Market Trend Insight" },
+          { key: "jdas_marketanalysis",     label: "Market Analysis" }
+        ]
+      }
     ]);
 
     const FIELD = Object.freeze({
-      title: ["jdas_title","jdas_headline","jdas_name","name","title","subject","topic","headline"],
-      desc:  ["jdas_summary","jdas_description","summary","description","detail","subtitle"],
-      body:  ["body","jdas_notes","notes","content","text","insight"],
-      date:  ["createdon","modifiedon","jdas_date","date","timestamp"]
+      title: ["title","name","topic","headline"],
+      subtitle: ["subtitle","summary","detail","description"],
+      body: ["body","insight","notes","content","text"],
+      details: ["details"],
+      tag: ["tag"],
+      date: ["createdOn","createdon","date","timestamp"]
     });
 
     function pick(obj, keys) {
@@ -212,31 +230,15 @@
       return "";
     }
 
-    function formatDate(v) {
-      if (!v) return "";
-      const d = new Date(v);
-      if (isNaN(d.getTime())) return String(v);
-      return d.toLocaleString();
-    }
-
-    function getSubtabKeys(items) {
-      // Use unique titles as subtabs (matches your current data structure)
-      const titles = items
-        .map(x => String(pick(x, FIELD.title) || "").trim())
-        .filter(Boolean);
-      return [...new Set(titles)];
-    }
-
-    /* ---------- Rendering ---------- */
     function renderShell() {
       const tabsEl = document.getElementById("industryTabs");
       const viewsEl = document.getElementById("industryViews");
+      if (!tabsEl || !viewsEl) return false;
 
       tabsEl.innerHTML = "";
       viewsEl.innerHTML = "";
 
       for (const ind of INDUSTRIES) {
-        // top tab
         const tab = document.createElement("button");
         tab.type = "button";
         tab.className = "tab";
@@ -245,7 +247,6 @@
         tab.setAttribute("aria-selected", "false");
         tabsEl.appendChild(tab);
 
-        // view container
         const view = document.createElement("div");
         view.className = "view";
         view.dataset.industryView = ind.key;
@@ -261,6 +262,8 @@
         view.appendChild(content);
         viewsEl.appendChild(view);
       }
+
+      return true;
     }
 
     function setActiveIndustry(industryKey) {
@@ -272,10 +275,34 @@
       });
     }
 
-    function setActiveSubtab(industryKey, subtabLabel) {
+    function setActiveTable(industryKey, tableKey) {
+      const want = norm(tableKey);
       document.querySelectorAll(`.subtabs[data-subtabs="${industryKey}"] .subtab`).forEach(btn => {
-        btn.setAttribute("aria-selected", btn.dataset.subtab === subtabLabel ? "true" : "false");
+        btn.setAttribute("aria-selected", norm(btn.dataset.table) === want ? "true" : "false");
       });
+    }
+
+    function renderSubtabs(industryKey) {
+      const ind = INDUSTRIES.find(x => x.key === industryKey);
+      const subtabsEl = document.querySelector(`.subtabs[data-subtabs="${industryKey}"]`);
+      if (!ind || !subtabsEl) return;
+
+      subtabsEl.innerHTML = ind.tables.map((t, i) => `
+        <button type="button"
+                class="subtab"
+                data-industry="${escapeHtml(industryKey)}"
+                data-table="${escapeHtml(t.key)}"
+                aria-selected="${i === 0 ? "true" : "false"}">
+          ${escapeHtml(t.label)}
+        </button>
+      `).join("");
+    }
+
+    function filterToTable(items, tableKey) {
+      const want = norm(tableKey);
+      if (!want) return items;
+      const filtered = items.filter(r => norm(r.table) === want);
+      return filtered.length ? filtered : items;
     }
 
     function renderCards(items) {
@@ -283,16 +310,18 @@
 
       const cards = items.map((row) => {
         const t = pick(row, FIELD.title) || "Update";
-        const desc = pick(row, FIELD.desc);
+        const sub = pick(row, FIELD.subtitle);
         const body = pick(row, FIELD.body);
-        const date = formatDate(pick(row, FIELD.date));
+        const det = pick(row, FIELD.details);
+        const tag = pick(row, FIELD.tag);
 
         return `
           <div class="carditem">
             <div class="t">${escapeHtml(t)}</div>
-            ${date ? `<div class="d">${escapeHtml(date)}</div>` : ``}
-            ${desc ? `<div class="d">${escapeHtml(desc)}</div>` : ``}
-            ${body ? `<div class="b">${escapeHtml(String(body)).slice(0, 320)}</div>` : ``}
+            ${tag ? `<div class="meta">${escapeHtml(tag)}</div>` : ""}
+            ${sub ? `<div class="d">${escapeHtml(sub)}</div>` : ""}
+            ${body ? `<div class="b">${escapeHtml(String(body)).slice(0, 420)}</div>` : ""}
+            ${det ? `<div class="b">${escapeHtml(String(det)).slice(0, 420)}</div>` : ""}
           </div>
         `.trim();
       }).join("");
@@ -303,45 +332,23 @@
     function renderIndustry(state, industryKey) {
       const block = state.blocks?.[industryKey];
       const items = (block && Array.isArray(block.items)) ? block.items : [];
-
-      const subtabsEl = document.querySelector(`.subtabs[data-subtabs="${industryKey}"]`);
       const contentEl = document.querySelector(`[data-content="${industryKey}"]`);
-      if (!subtabsEl || !contentEl) return;
+      if (!contentEl) return;
+
+      renderSubtabs(industryKey);
 
       if (!items.length) {
-        subtabsEl.innerHTML = "";
         contentEl.innerHTML = `<div class="empty">No records found.</div>`;
         return;
       }
 
-      const keys = getSubtabKeys(items);
+      const ind = INDUSTRIES.find(x => x.key === industryKey);
+      const defaultTable = ind?.tables?.[0]?.key || "";
+      const activeTable = state.activeTables[industryKey] || defaultTable;
+      state.activeTables[industryKey] = activeTable;
 
-      // If no usable subtab keys, render all
-      if (!keys.length) {
-        subtabsEl.innerHTML = "";
-        contentEl.innerHTML = renderCards(items);
-        return;
-      }
-
-      // Build subtabs
-      subtabsEl.innerHTML = keys.map((label, idx) => {
-        const selected = idx === 0 ? "true" : "false";
-        return `
-          <button type="button"
-                  class="subtab"
-                  data-industry="${escapeHtml(industryKey)}"
-                  data-subtab="${escapeHtml(label)}"
-                  aria-selected="${selected}">
-            ${escapeHtml(label)}
-          </button>
-        `.trim();
-      }).join("");
-
-      // Default: first subtab bucket
-      const first = keys[0];
-      state.activeSubtabs[industryKey] = first;
-      const bucket = items.filter(x => String(pick(x, FIELD.title) || "").trim() === first);
-      contentEl.innerHTML = renderCards(bucket);
+      setActiveTable(industryKey, activeTable);
+      contentEl.innerHTML = renderCards(filterToTable(items, activeTable));
     }
 
     function bindEvents(state) {
@@ -356,8 +363,22 @@
       tabsEl.addEventListener("click", (e) => {
         const btn = e.target.closest(".tab");
         if (!btn) return;
-        state.activeIndustry = btn.dataset.industry;
-        setActiveIndustry(state.activeIndustry);
+
+        const key = btn.dataset.industry;
+        state.activeIndustry = key;
+
+        setActiveIndustry(key);
+
+        const ind = INDUSTRIES.find(x => x.key === key);
+        const defaultTable = ind?.tables?.[0]?.key || "";
+        const tableToUse = state.activeTables[key] || defaultTable;
+        state.activeTables[key] = tableToUse;
+
+        setActiveTable(key, tableToUse);
+
+        const items = state.blocks?.[key]?.items || [];
+        const contentEl = document.querySelector(`[data-content="${key}"]`);
+        if (contentEl) contentEl.innerHTML = renderCards(filterToTable(items, tableToUse));
       });
 
       viewsEl.addEventListener("click", (e) => {
@@ -365,18 +386,17 @@
         if (!btn) return;
 
         const industryKey = btn.dataset.industry;
-        const subtabLabel = btn.dataset.subtab;
+        const tableKey = btn.dataset.table;
 
         state.activeIndustry = industryKey;
-        state.activeSubtabs[industryKey] = subtabLabel;
+        state.activeTables[industryKey] = tableKey;
 
         setActiveIndustry(industryKey);
-        setActiveSubtab(industryKey, subtabLabel);
+        setActiveTable(industryKey, tableKey);
 
         const items = state.blocks?.[industryKey]?.items || [];
-        const bucket = items.filter(x => String(pick(x, FIELD.title) || "").trim() === subtabLabel);
         const contentEl = document.querySelector(`[data-content="${industryKey}"]`);
-        if (contentEl) contentEl.innerHTML = renderCards(bucket);
+        if (contentEl) contentEl.innerHTML = renderCards(filterToTable(items, tableKey));
       });
 
       refreshBtn?.addEventListener("click", async () => {
@@ -390,28 +410,26 @@
       viewSelect?.addEventListener("change", () => {
         const mode = viewSelect.value;
         if (debugView) debugView.style.display = (mode === "raw") ? "block" : "none";
+        if (mode === "raw" && rawJson) rawJson.textContent = JSON.stringify({ ok:true, blocks: state.blocks }, null, 2);
       });
 
-      // Expose debug refs
-      state._debug = { rawJson, debugView };
+      state._debug = { rawJson, debugView, viewSelect };
     }
 
     async function loadDashboard(state) {
       const apiPill = document.getElementById("apiPill");
       const docsLink = document.getElementById("docsLink");
       const topSelect = document.getElementById("topSelect");
-      const viewSelect = document.getElementById("viewSelect");
 
       if (apiPill) apiPill.textContent = `API: ${API_BASE}`;
       if (docsLink) docsLink.href = `${API_BASE}/docs`;
 
-      // Loading
       setStatus("ok", "Loading latest updates…");
+
       for (const ind of INDUSTRIES) {
+        renderSubtabs(ind.key);
         const contentEl = document.querySelector(`[data-content="${ind.key}"]`);
         if (contentEl) contentEl.innerHTML = `<div class="loading">Loading…</div>`;
-        const subtabsEl = document.querySelector(`.subtabs[data-subtabs="${ind.key}"]`);
-        if (subtabsEl) subtabsEl.innerHTML = "";
       }
 
       const top = parseInt(topSelect?.value || "10", 10);
@@ -421,17 +439,14 @@
         const blocks = await getIndustrySummary({ top, orderby });
         state.blocks = blocks;
 
-        // Render each industry view
         for (const ind of INDUSTRIES) {
           renderIndustry(state, ind.key);
         }
 
-        // Keep active industry sane
         if (!state.activeIndustry) state.activeIndustry = INDUSTRIES[0].key;
         setActiveIndustry(state.activeIndustry);
 
-        // Debug JSON
-        if (state._debug?.rawJson && viewSelect?.value === "raw") {
+        if (state._debug?.viewSelect?.value === "raw" && state._debug?.rawJson) {
           state._debug.rawJson.textContent = JSON.stringify({ ok:true, blocks }, null, 2);
         }
 
@@ -444,33 +459,31 @@
           const contentEl = document.querySelector(`[data-content="${ind.key}"]`);
           if (contentEl) contentEl.innerHTML = `<div class="empty">Error loading data.</div>`;
         }
+
         if (state._debug?.rawJson) state._debug.rawJson.textContent = String(err?.message || err);
       }
     }
 
-    // Boot
     document.addEventListener("DOMContentLoaded", async () => {
       const state = {
         blocks: {},
         activeIndustry: "real_estate",
-        activeSubtabs: Object.create(null),
+        activeTables: Object.create(null),
         _debug: null
       };
 
-      renderShell();
+      if (!renderShell()) return;
       bindEvents(state);
+
       setActiveIndustry(state.activeIndustry);
 
-      // Default debug view hidden
       const debugView = document.getElementById("debugView");
       if (debugView) debugView.style.display = "none";
 
-      // Initial load
       await loadDashboard(state);
 
-      // Expose reload for manual testing
       window.JDAS_UI = {
-        reload: (opts) => loadDashboard(state, opts),
+        reload: () => loadDashboard(state),
         get state() { return state; }
       };
 
