@@ -1,6 +1,5 @@
-# app.py — JDAS backend (stable merge)
-import os, time, json, asyncio
-from datetime import datetime
+# app.py — JDAS Tailored Industry Updates backend (Dataverse raw + summary)
+import os, time, asyncio
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from urllib.parse import urlencode
@@ -19,7 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
-app = FastAPI(title="JDAS Dataverse API", version="0.5.0")
+app = FastAPI(title="JDAS Tailored Industry Updates API", version="1.0.0")
 
 # Serve /static/* from ./static (absolute)
 if STATIC_DIR.exists():
@@ -34,7 +33,7 @@ def home():
     return HTMLResponse("<h1>JDAS</h1><p>templates/index.html not found.</p>", status_code=200)
 
 # -------------------------
-# Env & constants (normalized)
+# Env & constants (normalized — same style as your current app)
 # -------------------------
 load_dotenv()
 
@@ -45,17 +44,22 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET")  or os.getenv("AZURE_CLIENT_SECRET")
 DATAVERSE_URL = (os.getenv("DATAVERSE_URL") or os.getenv("DATAVERSE_API_BASE") or "").rstrip("/")
 
 ALLOW_ORIGINS = [o.strip() for o in os.getenv("ALLOW_ORIGINS", "*").split(",")]
+
 CACHE_TTL_S   = int(os.getenv("CACHE_TTL_S", "120"))
 UPSTREAM_MAX_CONCURRENCY = int(os.getenv("UPSTREAM_MAX_CONCURRENCY", "4"))
 HTTP_TIMEOUT_S = float(os.getenv("HTTP_TIMEOUT_S", "15.0"))
 MAX_PAGE_TIMEOUT_S = float(os.getenv("MAX_PAGE_TIMEOUT_S", "60.0"))
+
+DEFAULT_TOP = int(os.getenv("DEFAULT_TOP", "25"))
+MAX_TOP     = int(os.getenv("MAX_TOP", "200"))
+DEFAULT_ORDERBY = os.getenv("DEFAULT_ORDERBY", "createdon desc")
 
 DATAVERSE_ENABLED = all([TENANT_ID, CLIENT_ID, CLIENT_SECRET, DATAVERSE_URL])
 TOKEN_URL = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token" if DATAVERSE_ENABLED else None
 SCOPE     = f"{DATAVERSE_URL}/.default" if DATAVERSE_ENABLED else None
 API_BASE  = f"{DATAVERSE_URL}/api/data/v9.2" if DATAVERSE_ENABLED else None
 
-# CORS for Wix / embedded dashboards
+# CORS for Wix / embedded dashboards (same behavior)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOW_ORIGINS if ALLOW_ORIGINS != ["*"] else ["*"],
@@ -65,7 +69,7 @@ app.add_middleware(
 )
 
 # -------------------------
-# Health & info
+# Health & info (keep same endpoints you already used)
 # -------------------------
 @app.get("/health", summary="Simple health check")
 def health_root():
@@ -78,7 +82,7 @@ def health_api():
 @app.get("/info", summary="Service info")
 def root_info():
     return {
-        "service": "JDAS Dataverse API",
+        "service": "JDAS Tailored Industry Updates API",
         "docs": "/docs",
         "health": "/health",
         "dataverse": DATAVERSE_ENABLED,
@@ -95,7 +99,9 @@ _entityset_cache: Dict[str, str] = {}  # logical -> EntitySetName
 
 client: Optional[httpx.AsyncClient] = None
 gate = asyncio.Semaphore(UPSTREAM_MAX_CONCURRENCY)
-table_cache: Dict[str, Dict[str, Any]] = {}  # path -> {"ts": float, "data": Any}
+
+# simple in-memory cache: cache_key -> {"ts": float, "data": Any}
+table_cache: Dict[str, Dict[str, Any]] = {}
 
 def now_s() -> float:
     return time.time()
@@ -163,302 +169,116 @@ async def resolve_entity_set_from_logical(logical_name: str) -> str:
     _entityset_cache[key] = entity_set
     return entity_set
 
+async def dv_get_json(url: str, headers: Dict[str, str]) -> dict:
+    """Single GET with retry/backoff; returns parsed JSON."""
+    delays = [0.2, 0.5, 1.0, 2.0]
+    last_exc = None
+    c = await get_client()
+
+    for delay in delays:
+        try:
+            r = await c.get(url, headers=headers, timeout=MAX_PAGE_TIMEOUT_S)
+            if r.status_code == 401:
+                # refresh token once then retry immediately
+                tok = await fetch_access_token()
+                headers = build_headers(tok)
+                r = await c.get(url, headers=headers, timeout=MAX_PAGE_TIMEOUT_S)
+
+            if r.status_code == 200:
+                return r.json()
+
+            if r.status_code in (429, 500, 502, 503, 504):
+                await asyncio.sleep(delay)
+                continue
+
+            raise HTTPException(r.status_code, f"Upstream error {r.status_code}: {r.text[:300]}")
+        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.RemoteProtocolError) as e:
+            last_exc = e
+            await asyncio.sleep(delay)
+            continue
+
+    if last_exc:
+        raise HTTPException(504, f"Upstream timeout: {last_exc}")
+    raise HTTPException(503, "Upstream unavailable after retries")
+
 async def dv_paged_get(path_or_url: str) -> List[dict]:
     """
-    GET with paging & retries; accepts 'entityset?$top=..' or a full URL.
-    Retries 429/5xx and common transport errors with exponential backoff.
+    GET with paging; accepts 'EntitySet?$top=..' or a full URL.
+    Returns aggregated "value" across pages.
     """
     _assert_cfg()
     next_url = path_or_url if path_or_url.startswith("http") else f"{API_BASE}/{path_or_url}"
-    delays = [0.2, 0.5, 1.0, 2.0]
     out: List[dict] = []
-    last_exc = None
 
     async with gate:
-        c = await get_client()
-        token = await get_access_token()
-        headers = build_headers(token)
+        tok = await get_access_token()
+        headers = build_headers(tok)
 
         while True:
-            for delay in delays:
-                try:
-                    r = await c.get(next_url, headers=headers, timeout=MAX_PAGE_TIMEOUT_S)
-                    if r.status_code == 401:
-                        # refresh token once then retry immediately
-                        token = await fetch_access_token()
-                        headers = build_headers(token)
-                        r = await c.get(next_url, headers=headers, timeout=MAX_PAGE_TIMEOUT_S)
+            data = await dv_get_json(next_url, headers=headers)
+            out.extend(data.get("value", []))
+            next_link = data.get("@odata.nextLink")
+            if not next_link:
+                return out
+            next_url = next_link
 
-                    if r.status_code == 200:
-                        data = r.json()
-                        out.extend(data.get("value", []))
-                        next_link = data.get("@odata.nextLink")
-                        if not next_link:
-                            return out
-                        next_url = next_link
-                        break  # break retry loop, continue outer while for next page
-
-                    if r.status_code in (429, 500, 502, 503, 504):
-                        await asyncio.sleep(delay)
-                        continue
-
-                    # non-retryable
-                    raise HTTPException(r.status_code, f"Upstream error {r.status_code}")
-                except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.RemoteProtocolError) as e:
-                    last_exc = e
-                    await asyncio.sleep(delay)
-                    continue
-            else:
-                # exhausted retries for this page
-                if last_exc:
-                    raise HTTPException(504, f"Upstream timeout: {last_exc}")
-                raise HTTPException(503, "Upstream unavailable after retries")
-
-def build_select(entity_set: str, columns: List[str], orderby: Optional[str] = None, top: int = 5000, extra: Optional[str] = None) -> str:
+def build_query(entity_set: str, top: int, orderby: str, extra: Optional[str] = None, include_select: bool = False, columns: Optional[List[str]] = None) -> str:
+    """
+    Build an OData query.
+    IMPORTANT: For "all columns", we do NOT include $select.
+    """
     params = {"$top": str(top)}
-    if columns:
-        params["$select"] = ",".join(columns)
     if orderby:
         params["$orderby"] = orderby
+    if include_select and columns:
+        params["$select"] = ",".join(columns)
+
     qs = urlencode(params)
     return f"{entity_set}?{qs}" + (f"&{extra}" if extra else "")
 
+# -------------------------
+# Table registry (NEW APP)
+# These are LOGICAL NAMES; entity sets are resolved via metadata and cached.
+# -------------------------
+TABLE_REGISTRY: Dict[str, Dict[str, str]] = {
+    "marketinsight":         {"logical": "jdas_marketinsight"},
+    "housingmarketinsight":  {"logical": "jdas_housingmarketinsight"},
+    "vehiclesalesforecast":  {"logical": "jdas_vehiclesalesforecast"},
+    "analyticsparadigm":     {"logical": "jdas_analyticsparadigm"},
+    "marketoutlook":         {"logical": "jdas_marketoutlook"},
+    "markettrendinsight":    {"logical": "jdas_markettrendinsight"},
+    "marketanalysis":        {"logical": "jdas_marketanalysis"},
+    "aiindustryinsight":     {"logical": "jdas_aiindustryinsight"},
+}
 
+SUMMARY_MAP: Dict[str, str] = {
+    # industries
+    "real_estate": "housingmarketinsight",
+    "automotive": "vehiclesalesforecast",
+    "analytics_ops": "analyticsparadigm",
+    "ai": "aiindustryinsight",
+    # general market blocks
+    "market": "marketinsight",
+    "outlook": "marketoutlook",
+    "trends": "markettrendinsight",
+    "analysis": "marketanalysis",
+}
 
 # -------------------------
-# TABLE CONFIG
+# Cache-backed fetch (all columns)
 # -------------------------
-from typing import Dict, Any, List  # (safe even if already imported)
+async def fetch_table_all_columns(table_key: str, top: int, orderby: str, extra: Optional[str]) -> Dict[str, Any]:
+    cfg = TABLE_REGISTRY.get(table_key)
+    if not cfg:
+        raise HTTPException(404, f"Unknown table_key '{table_key}'")
 
-TABLES: List[Dict[str, Any]] = [
-    # ── U.S. Trade ────────────────────────────────────────────────────────────
-    {
-        "name": "Trade Deficit Annual",
-        "logical": "cred8_tradedeficitannual",
-        "path": "/api/trade-deficit-annual",
-        # Fill these with the exact logical column names you want to expose:
-        "columns": ["jdas_month", "cred8_chatgpt"],   # ← Month, Total Deficit
-        "map_to":  ["Month", "Total Deficit"],
-        "orderby": "jdas_sortoder asc"
+    logical = cfg["logical"]
+    entity_set = await resolve_entity_set_from_logical(logical)
 
-    },
-    {
-        "name": "Tariff % by Country",
-        "logical": "cred8_tariffbycountry",
-        "entity_set": "cred8_tariffbycountries",
-        "path": "/api/tariff-by-country",
-        "columns": ["cred8_country", "cred8_tariffrateasofaug1"],
-        "map_to": ["Country", "Tariff Rates as of Aug 1"],
-        "orderby": "cred8_country asc"
-    },
-{
-    "name": "Tariff By Item",
-    "logical": "jdas_tariffschedule",
-    "entity_set": "jdas_tariffschedules",
-    "path": "/api/tariff-by-item",
-    "columns": [
-        "jdas_productcategory",
-        "jdas_totaltariffpercentage",
-        "jdas_additionaltariffpercentage",
-        "jdas_tariffreasonorprogram",
-        "jdas_tariffeffectivedate",
-        "jdas_additionalnotes"
-    ],
-    "map_to": [
-        "Product Category",
-        "Total Tariff Percentage",
-        "Additional Tariff Percentage",
-        "Tariff Reason or Program",
-        "Tariff Effective Date",
-        "Additional Notes"
-    ],
-    "orderby": ""
-},
-{
-    "name": "Trade Deals",
-    "logical": "cred8_tradedeal",
-    "entity_set": "cred8_tradedeals",
-    "path": "/api/trade-deals",
-    "columns": [
-        "cred8_countries",
-        "cred8_impact",
-        "cred8_notes"
-    ],
-    "map_to": [
-        "Countries",
-        "Impact",
-        "Notes"
-    ],
-    "orderby": "cred8_countries asc"
-},
+    # IMPORTANT: no $select -> all columns
+    query = build_query(entity_set, top=top, orderby=orderby, extra=extra, include_select=False)
 
- {
-    "name": "Tariff Revenue",
-    "logical": "cred8_tariffrevenue",
-    "entity_set": "cred8_tariffrevenues",   # keep if you already have it
-    "path": "/api/tariff-revenue",
-    "columns": ["cred8_month", "cred8_revenueamountbillionusd"],
-    "map_to":  ["Month",      "RevenueAmountBillionUSD"],
-    "orderby": "jdas_sortorder asc"
-},
-
-    # ── KPI / Key Stats ───────────────────────────────────────────────────────
-    {
-        "name": "Unemployment Rate",
-        "logical": "cred8_unemploymentrate",
-        "entity_set": "cred8_unemploymentrates",
-        "path": "/api/unemployment-rate",
-        "columns": ["cred8_month", "cred8_unemploymentrate"],
-        "map_to": ["Month",       "UnemploymentRate"],
-        "orderby": "jdas_sortorder asc, cred8_month asc"
-    },
-    {
-        "name": "Inflation Rate",
-        "logical": "cred8_inflationrate",
-        "entity_set": "cred8_inflationrates",
-        "path": "/api/inflation-rate",
-        "columns": ["cred8_month", "cred8_cpi"],
-        "map_to": ["Month","CPI %"],
-        "orderby": "jdas_sortorder asc"
-    },
-    {
-        "name": "Manufacturing PMI Report",
-        "logical": "jdas_manufacturingpmireport",
-        "path": "/api/manufacturing-pmi-report",
-        "columns": ["jdas_month", "jdas_ismmanufacturingpmi"],
-        "map_to": ["Month (2025)", "ISM Manufacturing PMI"],
-        "orderby": "jdas_sortorder asc"
-    },
-    {
-        "name": "Weekly Claims Report",
-        "logical": "jdas_weeklyclaimsreport",
-        "path": "/api/weekly-claims-report",
-        "columns": ["jdas_month", "jdas_ccivalue"],
-        "map_to": ["Month", "Conference Board CCI"],
-        "orderby": "jdas_month asc"
-    },
-    {
-        "name": "Consumer Confidence Index",
-        "logical": "jdas_consumerconfidenceindex",
-        "path": "/api/consumer-confidence-index",
-        "columns": ["jdas_month", "jdas_ccivalue"],
-        "map_to": ["Month", "Conference Board CCI"],
-        "orderby": "jdas_month asc"
-    },
-    {
-        "name": "Treasury Yield Record",
-        "logical": "jdas_treasuryyieldrecord",
-        "path": "/api/treasury-yields-record",
-        "columns": ["jdas_month", "jdas_5yeartreasuryyield,jdas_tenyeartreasuryyieldpercentage"],
-        "map_to": ["Month", "5-Year Treasury Yield"],
-        "orderby": ""
-    },
-
-    # ── Labor & Society ───────────────────────────────────────────────────────
-    {
-        "name": "Publicly Announced Revenue Loss",
-        "logical": "cred8_publiclyannoucedrevenueloss",  # keep your exact logical name
-        "path": "/api/publicly-annouced-revenue-loss",   # route spelling matches existing
-        "columns": ["cred8_company", "cred8_amountloss", "cred8_amountloss_base"],
-        "map_to": ["Company", "Amount Loss", "Amount Loss (Base)"],
-        "orderby": ""
-    },
-    {
-        "name": "Layoff Tracking*",
-        "logical": "cred8_layoffannouncement",   # ← confirm actual logical name
-        "path": "/api/layoffs",             # keep the working path used by your card
-        "columns": ["cred8_announcementdate","cred8_companyname", "cred8_numberoflayoffs"],
-        "map_to": ["Date Logged", "Company", "Layoff Number"],
-        "orderby":  "cred8_announcementdate desc"
-    },
-    {
-        "name": "Acquisition Deal",
-        "logical": "jdas_acquisitiondeal",
-        "path": "/api/acquisition-deal",
-        "columns": ["jdas_acquirername", "jdas_announcementdate", "jdas_targetcompanyname"],
-        "map_to": ["Acquirer", "Announcement Date", "Target Company"],
-        "orderby": ""
-    },
-    {
-        "name": "Bankruptcy Log",
-        "logical": "cred8_bankruptcylog",
-        "entity_set": "cred8_bankruptcylogs",
-        "path": "/api/bankruptcies",
-        "columns": ["cred8_company", "cred8_sector", "cred8_datelogged"],
-        "map_to": ["Company", "Sector", "Date Logged"],
-        "orderby": ""
-    },
-
-    # ── Environmental & Energy ────────────────────────────────────────────────
-    {
-        "name": "Environmental Regulation",
-        "logical": "jdas_environmentalregulation",
-        "path": "/api/environmental-regulation",
-        "columns": ["jdas_compliancedeadline", "jdas_regulationcoverage", "jdas_regulatoryjurisdiction"],
-        "map_to": ["Deadline", "Coverage", "Jurisdiction"],
-        "orderby": ""
-    },
-    {
-        "name": "Environmental Policy",
-        "logical": "jdas_environmentalpolicy",
-        "path": "/api/environmental-policy",
-        "columns": ["jdas_effectivedate","jdas_jurisdiction","jdas_policyname","jdas_policystatus","jdas_policysummary"],
-        "map_to": ["Effective Date", "Jurisdiction", "Policy Name", "Policy Status", "Policy Summary"],
-        "orderby": ""
-    },
-    {
-        "name": "Infrastructure Investment",
-        "logical": "jdas_infrastructureinvestment",
-        "path": "/api/infrastructure-investment",
-        "columns": ["jdas_challenges_risks","jdas_focus_area","jdas_funding_amount_usd","jdas_funding_amount_usd_base","jdas_funding_source","jdas_program_act","jdas_recent_progress_updates","jdas_sector"],
-        "map_to": ["Challenges / Risks","Focus Area","Funding Amount (USD)","Funding Amount (Base)","Funding Source","Program / Act","Recent Progress Updates","Sector"],
-        "orderby": ""
-    },
-
-    # ── Global Events ─────────────────────────────────────────────────────────
-    {
-        "name": "Corporate SpinOff",
-        "logical": "jdas_corporatespinoff",
-        "path": "/api/corporate-spinoff",
-        "columns": ["jdas_headquartersregion", "jdas_spinoffentity"],
-        "map_to": ["HQ Region", "Spin-Off Entity"],
-        "orderby": ""
-    },
-    {
-        "name": "Conflict Record",
-        "logical": "jdas_conflictrecord",
-        "path": "/api/conflict-record",
-        "columns": ["jdas_conflictname", "jdas_conflictnature"],
-        "map_to": ["Conflict Name", "Conflict Nature"],
-        "orderby": ""
-    },
-    {
-        "name": "Global Natural Disasters",
-        "logical": "jdas_globalnaturaldisasters",
-        "path": "/api/global-natural-disasters",
-        "columns": ["jdas_countryregion", "jdas_disastername"],
-        "map_to": ["Country/Region", "Disaster Name"],
-        "orderby": ""
-    },
-]
-
-TABLE_BY_PATH = {t["path"]: t for t in TABLES}
-# -------------------------
-# Cache + fetch wrapper per table (prevents 503 surfacing)
-
-# -------------------------
-async def get_table_data(es_or_logical: Dict[str, Any], top: int, orderby: Optional[str], extra: Optional[str], return_raw: bool, cols: List[str], keys: List[str]):
-    # Pick explicit entity_set if supplied, else resolve logical
-    if es_or_logical.get("entity_set"):
-        es = es_or_logical["entity_set"]
-    else:
-        logical = es_or_logical.get("logical")
-        if not logical:
-            raise HTTPException(500, "No entity_set or logical provided")
-        es = await resolve_entity_set_from_logical(logical)
-
-    query = build_select(es, cols if cols else [], (orderby or es_or_logical.get("orderby") or ""), top=top, extra=extra)
-    cache_key = f"{es}|{top}|{orderby}|{extra}|{','.join(cols) if cols else '*'}"
+    cache_key = f"{table_key}|{entity_set}|{top}|{orderby}|{extra or ''}|ALL"
     item = table_cache.get(cache_key)
     if item and cache_fresh(item["ts"], CACHE_TTL_S):
         rows = item["data"]
@@ -466,76 +286,95 @@ async def get_table_data(es_or_logical: Dict[str, Any], top: int, orderby: Optio
         rows = await dv_paged_get(query)
         table_cache[cache_key] = {"ts": now_s(), "data": rows}
 
-    if return_raw or not cols:
-        return {"ok": True, "count": len(rows), "value": rows}
-
-    shaped = [{k: r.get(c) for c, k in zip(cols, keys)} for r in rows]
-    return {"ok": True, "count": len(shaped), "value": shaped}
+    return {
+        "ok": True,
+        "table_key": table_key,
+        "logical": logical,
+        "entity_set": entity_set,
+        "top": top,
+        "orderby": orderby,
+        "count": len(rows),
+        "value": rows,
+    }
 
 # -------------------------
-# Route factory (keeps your query params & raw-rows behavior)
+# API (NEW) — /api/v1/raw + /api/v1/summary
+# Keeps your "mask upstream errors" behavior (returns 200 with ok:false)
 # -------------------------
-def make_handler(entity_set: Optional[str], logical: Optional[str],
-                 cols: List[str], keys: List[str], default_order: Optional[str]):
+@app.get("/api/v1/raw/tables", summary="List available table keys")
+async def raw_tables():
+    return {"ok": True, "tables": sorted(TABLE_REGISTRY.keys())}
 
-    async def handler(
-        top: int = Query(5000, ge=1, le=50000, description="$top limit"),
-        orderby: Optional[str] = Query(None, description="Override $orderby"),
-        extra: Optional[str] = Query(None, description="Extra OData query string to append (advanced)"),
-        raw: bool = Query(False, description="Return raw rows even when columns are defined"),
-    ):
+@app.get("/api/v1/raw/{table_key}", summary="Fetch raw rows (all columns) from a Dataverse table")
+async def raw_table(
+    table_key: str,
+    top: int = Query(DEFAULT_TOP, ge=1, le=MAX_TOP, description="Number of rows to return ($top)"),
+    orderby: str = Query(DEFAULT_ORDERBY, description="OData $orderby (default: createdon desc)"),
+    extra: Optional[str] = Query(None, description="Extra OData query string to append (advanced). Example: $filter=..."),
+):
+    try:
+        payload = await fetch_table_all_columns(table_key=table_key, top=top, orderby=orderby, extra=extra)
+        return JSONResponse(content=payload, status_code=200)
+    except HTTPException as e:
+        # mask upstream errors to keep 200 for iframe; tell frontend ok:false
+        return JSONResponse(status_code=200, content={"ok": False, "status": e.status_code, "error": str(e.detail)})
+    except Exception as e:
+        return JSONResponse(status_code=200, content={"ok": False, "status": 500, "error": f"Server error: {e}"})
+
+@app.get("/api/v1/summary/industry-updates", summary="One-call endpoint for the Tailored Industry Updates dashboard")
+async def industry_updates(
+    top: int = Query(10, ge=1, le=MAX_TOP, description="Rows per block"),
+    orderby: str = Query(DEFAULT_ORDERBY, description="OData $orderby (default: createdon desc)"),
+):
+    """
+    Returns multiple blocks in one payload for fast Wix loading.
+    Each block returns ALL columns (no $select).
+    """
+    blocks: Dict[str, Any] = {}
+
+    async def _fetch_block(block_name: str, key: str):
         try:
-            payload = await get_table_data(
-                {"entity_set": entity_set, "logical": logical, "orderby": default_order},
-                top=top, orderby=orderby, extra=extra,
-                return_raw=(raw or not cols), cols=cols, keys=keys
-            )
-            return JSONResponse(content=payload, status_code=200)
+            data = await fetch_table_all_columns(table_key=key, top=top, orderby=orderby, extra=None)
+            # keep payload lighter by renaming value->items for blocks
+            blocks[block_name] = {
+                "ok": True,
+                "table_key": key,
+                "logical": data.get("logical"),
+                "entity_set": data.get("entity_set"),
+                "count": data.get("count"),
+                "items": data.get("value"),
+            }
         except HTTPException as e:
-            # mask upstream errors to keep 200 for iframe; tell frontend ok:false
-            return JSONResponse(status_code=200, content={"ok": False, "status": e.status_code, "error": str(e.detail)})
+            blocks[block_name] = {"ok": False, "status": e.status_code, "error": str(e.detail)}
         except Exception as e:
-            return JSONResponse(status_code=200, content={"ok": False, "status": 500, "error": f"Server error: {e}"})
+            blocks[block_name] = {"ok": False, "status": 500, "error": f"Server error: {e}"}
 
-    return handler
+    # Fetch blocks concurrently (respecting your global semaphore via dv_paged_get)
+    tasks = [_fetch_block(block, key) for block, key in SUMMARY_MAP.items()]
+    await asyncio.gather(*tasks)
 
-for cfg in TABLES:
-    app.get(cfg["path"], name=cfg["name"])(
-        make_handler(
-            cfg.get("entity_set"),
-            cfg.get("logical"),
-            cfg.get("columns", []),
-            cfg.get("map_to", []),
-            cfg.get("orderby"),
-        )
-    )
+    return {"ok": True, "top": top, "orderby": orderby, "blocks": blocks}
 
 # -------------------------
-# Metadata & describe utilities
+# Metadata utilities (handy for debugging)
 # -------------------------
-@app.get("/api/metadata", summary="List available resources")
-async def list_resources():
-    return [
-        {
-            "name": t["name"],
-            "path": t["path"],
-            "entity_set": t.get("entity_set", ""),
-            "logical": t.get("logical", ""),
-            "columns": t.get("columns", []),
-            "orderby": t.get("orderby", ""),
-        }
-        for t in TABLES
-    ]
+@app.get("/api/v1/metadata", summary="List registry + resolved entity set names (best-effort)")
+async def metadata():
+    out = []
+    for k, v in TABLE_REGISTRY.items():
+        logical = v["logical"]
+        try:
+            es = await resolve_entity_set_from_logical(logical)
+        except Exception:
+            es = ""
+        out.append({"table_key": k, "logical": logical, "entity_set": es})
+    return {"ok": True, "tables": out}
 
-@app.get("/api/_tables", summary="Quick table listing")
-async def list_tables():
-    return [{"name": t["name"], "path": t["path"], "logical": t.get("logical",""), "entity_set": t.get("entity_set","")} for t in TABLES]
-
-@app.get("/api/describe", summary="Resolve entity set & return one sample row")
+@app.get("/api/v1/describe", summary="Resolve entity set & return one sample row")
 async def describe(logical: str):
     es = await resolve_entity_set_from_logical(logical)
     rows = await dv_paged_get(f"{es}?$top=1")
-    return {"logical": logical, "entity_set": es, "sample": rows[:1]}
+    return {"ok": True, "logical": logical, "entity_set": es, "sample": rows[:1]}
 
 # -------------------------
 # Lifecycle
@@ -557,12 +396,13 @@ async def _shutdown():
             await client.aclose()
         finally:
             client = None
+
 @app.get("/envcheck")
 def _envcheck():
-    import os
     keys = [
         "DATAVERSE_URL","TENANT_ID","CLIENT_ID","CLIENT_SECRET",
-        "AZURE_TENANT_ID","AZURE_CLIENT_ID","AZURE_CLIENT_SECRET","DATAVERSE_API_BASE"
+        "AZURE_TENANT_ID","AZURE_CLIENT_ID","AZURE_CLIENT_SECRET","DATAVERSE_API_BASE",
+        "ALLOW_ORIGINS"
     ]
     # Only booleans — no secrets returned
     return {k: bool(os.getenv(k)) for k in keys}
