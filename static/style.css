@@ -1,246 +1,160 @@
 /* ======================================
-   JD Analytics & Solutions
-   Tailored Industry Updates Dashboard
-   Clean Steel + Navy (Smooth JDAS style)
+   JDAS — Tailored Industry Updates
+   Tabs + Subtabs UI (Clean Navy + Steel)
    ====================================== */
 
-/* ===== Theme Tokens ===== */
 :root{
-  /* Page background (steel) */
-  --bg-0:#8d8f92;
-  --bg-1:#9a9da0;
+  --bg0:#8d8f92;
+  --bg1:#9a9da0;
 
-  /* Navy stack */
-  --navy-950:#0b1220;
-  --navy-900:#101a2b;
-  --navy-850:#14203a;
-  --navy-800:#172338;
-  --navy-750:#1a2944;
-  --navy-700:#1b2a48;
-  --navy-650:#203154;
-  --navy-600:#243557;
+  --navy0:#0b1220;
+  --navy1:#101a2b;
+  --navy2:#172338;
+  --navy3:#1b2a48;
+  --navy4:#203154;
 
-  /* Accents (minimal) */
-  --blue-500:#5a8dee;
-  --blue-400:#7aa3f1;
-  --teal-400:#61d095;
+  --steel0:#f4f7fb;
+  --steel1:#eef2f7;
+  --steel2:#dde3ea;
+  --steel3:#ccd2da;
 
-  /* Neutrals / text */
-  --steel-50:#f4f7fb;
-  --steel-100:#eef2f7;
-  --steel-200:#dde3ea;
-  --steel-300:#ccd2da;
+  --textDark:#2f3b4c;
+  --textLight:#e9eef5;
 
-  --text-dark:#2f3b4c;
-  --text-light:#e9eef5;
-
+  --blue:#5a8dee;
+  --teal:#61d095;
   --danger:#e14b4b;
 
-  /* Surfaces / effects */
-  --radius:18px;
-  --radius-sm:14px;
-  --shadow:0 14px 34px rgba(0,0,0,.22);
-  --shadow-soft:0 10px 22px rgba(0,0,0,.14);
-  --border-dark:rgba(255,255,255,.12);
-  --border-dark-2:rgba(255,255,255,.18);
+  --r-lg:18px;
+  --r-md:14px;
+  --r-sm:12px;
 
-  /* Layout */
-  --container:1280px; /* IMPORTANT: wider so 4 columns don't spill */
+  --shadow:0 14px 34px rgba(0,0,0,.22);
+  --shadow2:0 10px 22px rgba(0,0,0,.14);
+  --border:rgba(255,255,255,.12);
+  --border2:rgba(255,255,255,.18);
+
+  --container: 1240px;
 }
 
-/* ===== Reset ===== */
+/* Reset */
 *{ box-sizing:border-box; margin:0; padding:0; }
 html,body{ height:100%; }
 
 body{
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  color:var(--text-dark);
-  background: linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+  color:var(--textDark);
+  background: linear-gradient(180deg,var(--bg0),var(--bg1));
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* Soft lighting overlay */
 body::before{
   content:"";
   position:fixed; inset:0;
   pointer-events:none;
-  z-index:0;
   background:
     radial-gradient(1100px 620px at 18% -10%, rgba(255,255,255,.16), transparent 60%),
     radial-gradient(1100px 700px at 102% 112%, rgba(0,0,0,.12), transparent 60%);
 }
 
-/* ===== App Bar ===== */
+/* App shell */
+.container{
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Top bar (optional) */
 .appbar{
-  position:sticky;
-  top:0;
-  z-index:10;
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  padding:14px 16px;
-
+  padding: 14px 16px;
   background: rgba(232,235,240,.72);
-  border-bottom: 1px solid var(--steel-300);
+  border-bottom: 1px solid var(--steel3);
   box-shadow: 0 8px 18px rgba(0,0,0,.12);
   backdrop-filter: blur(10px) saturate(1.15);
 }
 
 .title{
-  color:var(--navy-800);
-  font-size:16px;
-  font-weight:800;
-  letter-spacing:.2px;
+  font-size: 16px;
+  font-weight: 850;
+  color: var(--navy2);
+  letter-spacing: .2px;
 }
 
-.right{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  flex-wrap:wrap;
-}
-
-/* Pills */
 .pill{
-  border:1px solid var(--steel-300);
-  color:var(--navy-800);
+  border:1px solid var(--steel3);
+  color:var(--navy2);
   background: linear-gradient(180deg, #eef2f7, #e3e8ee);
   border-radius:999px;
   padding:5px 10px;
   font-size:12px;
 }
 
-/* ===== Layout ===== */
-.container{
-  max-width: var(--container);
-  margin: 0 auto;
-  padding: 16px;
-  position:relative;
-  z-index:1;
-}
+button, select, input{ font:inherit; }
 
-/* If you have any “panel wrapper” around sections, keep it from clipping */
-.card,
+/* Primary panel */
 .panel{
-  overflow: visible; /* prevents child grids from visually “escaping” due to clipping */
-}
-
-/* ===== Cards / Panels ===== */
-.card{
-  background: linear-gradient(180deg, var(--navy-700), var(--navy-650));
-  color: var(--text-light);
+  background: linear-gradient(180deg, var(--navy3), var(--navy4));
+  color: var(--textLight);
   border: 1px solid rgba(255,255,255,.10);
-  border-radius: var(--radius);
-  padding: 16px;
+  border-radius: var(--r-lg);
   box-shadow: var(--shadow);
-  transition: transform .10s ease, border-color .18s ease, box-shadow .18s ease;
+  overflow: hidden; /* contains inner shadows nicely */
 }
 
-.card:hover{
-  border-color: rgba(255,255,255,.18);
-  box-shadow: 0 16px 42px rgba(0,0,0,.24);
+.panel-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
 }
 
-.card-title{
-  margin: 0 0 10px;
+.panel-head h2{
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 900;
   color: #fff;
 }
 
-/* Section header row (h2/h3 + status) */
-.section-title{
-  display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom: 10px;
+.panel-body{
+  padding: 14px 16px 16px;
 }
 
-.section-title h2,
-.section-title h3{
-  color:#fff;
-  font-weight: 850;
-}
-
-/* ===== Status ===== */
-.status{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  color:#d7e3f7;
-  font-size:13px;
-}
-
-.badge{
-  border-radius:999px;
-  padding:4px 10px;
-  font-size:12px;
-  background: rgba(15,27,48,.85);
-  border: 1px solid rgba(255,255,255,.14);
-  color: #f4f7fb;
-}
-
-.badge.ok{
-  color: var(--teal-400);
-  border-color: rgba(97,208,149,.60);
-}
-
-.badge.err{
-  color: var(--danger);
-  border-color: rgba(225,75,75,.65);
-}
-
-.hint{
-  color:#e6ebf3;
-  opacity:.82;
-  font-size:12px;
-}
-
-/* ===== Toolbar / Controls ===== */
+/* Toolbar */
 .toolbar{
   display:flex;
   flex-wrap:wrap;
   gap:10px;
   align-items:center;
   justify-content:space-between;
+  margin-bottom: 12px;
 }
 
-.toolbar .left,
-.toolbar .right{
+.toolbar .group{
   display:flex;
   flex-wrap:wrap;
   gap:10px;
   align-items:center;
 }
 
-select, button, input{ font:inherit; }
-
-select{
-  border-radius: 12px;
-  padding: .48rem .65rem;
-  border: 1px solid rgba(255,255,255,.16);
-  background: rgba(255,255,255,.06);
-  color: var(--text-light);
-  outline:none;
-}
-
-select:focus{
-  border-color: rgba(90,141,238,.55);
-  box-shadow: 0 0 0 3px rgba(90,141,238,.20);
-}
-
-/* Buttons */
 .btn{
   cursor:pointer;
-  border-radius:12px;
-  padding:.55rem .8rem;
+  border-radius: 12px;
+  padding: .55rem .8rem;
   border:1px solid rgba(255,255,255,.14);
   background: rgba(255,255,255,.06);
   color: inherit;
-  transition: transform .08s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+  transition: transform .08s ease, background .15s ease, border-color .15s ease;
 }
 
 .btn:hover{
@@ -249,125 +163,166 @@ select:focus{
   transform: translateY(-1px);
 }
 
-.btn:active{
-  transform: translateY(0px);
-}
-
 .btn.primary{
-  border-color: rgba(90,141,238,.45);
-  box-shadow: 0 8px 18px rgba(0,0,0,.10);
+  border-color: rgba(90,141,238,.50);
 }
 
-.btn.primary:hover{
-  border-color: rgba(90,141,238,.65);
+select{
+  border-radius: 12px;
+  padding: .48rem .65rem;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(255,255,255,.06);
+  color: var(--textLight);
+  outline: none;
 }
 
-/* ===== KEY FIX: Section column layout (4+ columns wrap correctly) =====
-   Apply this class to the wrapper that holds: Real Estate, Automotive, etc.
-   If your HTML doesn't have it yet, add class="section-grid" to that wrapper.
-*/
-.section-grid{
-  display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
-  align-items: start;
+select:focus{
+  border-color: rgba(90,141,238,.60);
+  box-shadow: 0 0 0 3px rgba(90,141,238,.20);
 }
 
-/* ===== Cards list (records) =====
-   Uses auto-fit so it never “forces” a 3-col layout that breaks.
-*/
+/* Status badge */
+.status{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:13px;
+  opacity:.92;
+}
+
+.badge{
+  border-radius:999px;
+  padding:4px 10px;
+  font-size:12px;
+  background: rgba(15,27,48,.85);
+  border: 1px solid rgba(255,255,255,.14);
+  color:#f4f7fb;
+}
+
+.badge.ok{ color: var(--teal); border-color: rgba(97,208,149,.60); }
+.badge.err{ color: var(--danger); border-color: rgba(225,75,75,.65); }
+
+/* ===== Tabs (Industries) ===== */
+.tabs{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom: 12px;
+}
+
+.tab{
+  cursor:pointer;
+  user-select:none;
+  border-radius: 999px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: .1px;
+  transition: background .15s ease, border-color .15s ease, transform .08s ease;
+}
+
+.tab:hover{
+  background: rgba(255,255,255,.10);
+  border-color: rgba(255,255,255,.22);
+  transform: translateY(-1px);
+}
+
+.tab[aria-selected="true"]{
+  background: rgba(90,141,238,.18);
+  border-color: rgba(90,141,238,.55);
+}
+
+/* ===== Subtabs (tables within industry) ===== */
+.subtabs{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin: 10px 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+.subtab{
+  cursor:pointer;
+  border-radius: 12px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.045);
+  color:#fff;
+  font-weight: 800;
+  font-size: 12.5px;
+  transition: background .15s ease, border-color .15s ease;
+}
+
+.subtab:hover{
+  background: rgba(255,255,255,.07);
+  border-color: rgba(255,255,255,.18);
+}
+
+.subtab[aria-selected="true"]{
+  background: rgba(97,208,149,.14);
+  border-color: rgba(97,208,149,.55);
+}
+
+/* ===== Views ===== */
+.view{
+  display:none;
+}
+
+.view.active{
+  display:block;
+}
+
+/* Card list for records */
 .cards{
   display:grid;
   gap:10px;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  align-items: start;
+  align-items:start;
 }
 
-/* Individual record “chip/card” */
 .carditem{
   border: 1px solid rgba(255,255,255,.10);
   background: rgba(255,255,255,.045);
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-md);
   padding: 12px;
-  box-shadow: var(--shadow-soft);
-  transition: transform .10s ease, border-color .15s ease, background .15s ease;
-}
-
-.carditem:hover{
-  transform: translateY(-1px);
-  border-color: rgba(255,255,255,.18);
-  background: rgba(255,255,255,.065);
+  box-shadow: var(--shadow2);
 }
 
 .carditem .t{
-  font-weight: 850;
-  margin: 0 0 6px 0;
-  color: #fff;
+  color:#fff;
+  font-weight: 900;
+  margin: 0 0 6px;
   line-height: 1.2;
 }
 
 .carditem .d{
   opacity: .84;
   font-size: .86rem;
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
   line-height: 1.35;
 }
 
 .carditem .b{
   opacity: .92;
-  margin: 0;
   line-height: 1.35;
 }
 
-/* ===== Messages ===== */
-.empty, .loading{
+/* Loading / empty */
+.loading, .empty{
   padding: 18px;
   text-align:center;
   color:#cfd8ea;
 }
 
 @keyframes pulse{ 0%,100%{opacity:.55} 50%{opacity:1} }
-.loading{ animation:pulse 1.2s ease-in-out infinite }
-
-/* ===== Debug / details ===== */
-details{
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.035);
-  padding: 10px;
-}
-
-details summary{ cursor:pointer; }
-
-pre{
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-.mono{
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-}
-
-/* ===== Links ===== */
-a{ color: inherit; }
-a:hover{ opacity: .92; }
-
-/* ===== Helpers ===== */
-.spacer{ height: 14px; }
-.hidden{ display:none !important; }
-.error{ color: #ff99aa; }
-
-/* ===== Embeds ===== */
-iframe{ border-radius: 12px; }
-
-/* ===== Responsive ===== */
-@media (max-width: 900px){
-  .container{ padding: 14px; }
-  .title{ font-size: 15px; }
-}
+.loading{ animation:pulse 1.2s ease-in-out infinite; }
 
 @media (max-width: 700px){
-  .card{ padding: 14px; }
-  .card-title{ font-size: 15px; }
-  .section-grid{ grid-template-columns: 1fr; }
+  .panel-body{ padding: 12px; }
+  .tabs{ gap:8px; }
+  .tab{ width: 100%; justify-content:center; text-align:center; }
 }
