@@ -1,508 +1,246 @@
 /* =========================================================
-   JDAS — Tailored Industry Updates (Clean Full CSS)
-   Matches templates/index.html structure exactly:
-   - .appbar, .container, .panel
-   - #industryTabs .tab (Industry)
-   - .view.active switching (Industry views)
-   - .subtabs .subtab (Tables)
-   - .cards .carditem (.t .meta .d .b)
+   JDAS — Modern Dashboard Redesign
+   A clean, professional interface focusing on legibility.
    ========================================================= */
 
-/* -------------------------
-   Theme Tokens
-------------------------- */
-:root{
-  /* Base */
-  --bg: #eef2f6;
-  --panel: #ffffff;
-  --panel-2: #f7f9fc;
+:root {
+  /* Refined Color Palette */
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --primary: #2563eb;       /* Modern Blue */
+  --primary-soft: #eff6ff;
+  --accent: #10b981;        /* Modern Green */
+  --accent-soft: #ecfdf5;
+  
+  /* Neutral Tones */
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --text-light: #9ca3af;
+  --border-light: #e5e7eb;
+  --border-focus: #3b82f6;
 
-  /* Navy scale */
-  --navy-950:#070c16;
-  --navy-900:#0b1220;
-  --navy-850:#0f1729;
-  --navy-800:#101a2b;
-  --navy-750:#141f35;
-  --navy-700:#172338;
+  /* Elevation */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 
-  /* Text */
-  --text:#1f2a3a;
-  --muted:#5b6a7d;
-  --muted-2:#6b7b90;
-
-  /* Borders */
-  --border:#d8dee8;
-  --border-2:#c8d0de;
-
-  /* Accents */
-  --blue:#5a8dee;
-  --blue-2:#3f78e6;
-  --green:#28b37a;
-  --red:#d84a4a;
-
-  /* Radius */
-  --r-xl: 18px;
-  --r-lg: 14px;
-  --r-md: 12px;
-  --r-pill: 999px;
-
-  /* Spacing */
-  --pad: 14px;
-  --gap: 10px;
-
-  /* Shadows */
-  --shadow: 0 12px 30px rgba(16,26,43,.10);
-  --shadow-strong: 0 16px 40px rgba(7,12,22,.18);
-
-  /* Focus */
-  --focus: 3px solid rgba(90,141,238,.40);
+  /* Layout Constants */
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+  --max-width: 1200px;
 }
 
 /* -------------------------
-   Base / Reset-ish
+   Base Reset
 ------------------------- */
-*{ box-sizing:border-box; }
+* {
+  box-sizing: border-box;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-html, body{
+body {
   margin: 0;
-  padding: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-}
-
-a{ color: var(--blue-2); text-decoration: none; }
-a:hover{ text-decoration: underline; }
-
-:focus-visible{
-  outline: var(--focus);
-  outline-offset: 2px;
-  border-radius: 10px;
+  background-color: var(--bg);
+  color: var(--text-main);
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* -------------------------
-   Layout
+   Main Layout & App Bar
 ------------------------- */
-.container, main{
-  max-width: 1180px;
+.container {
+  max-width: var(--max-width);
   margin: 0 auto;
-  padding: 12px;
+  padding: 2rem 1rem;
 }
 
-/* -------------------------
-   App Bar (Top Header)
-------------------------- */
-.appbar{
+.appbar {
   position: sticky;
   top: 0;
-  z-index: 10;
-
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 10px;
-
-  padding: 12px 14px;
-  background: linear-gradient(180deg, var(--navy-800), var(--navy-950));
-  border-bottom: 1px solid rgba(255,255,255,.10);
-  box-shadow: var(--shadow-strong);
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-light);
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.appbar .title{
-  color: #fff;
-  font-weight: 900;
-  letter-spacing: .2px;
-  font-size: 14px;
-}
-
-.appbar .right{
-  display:flex;
-  align-items:center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* Pills used across UI */
-.pill{
-  display:inline-flex;
-  align-items:center;
-  gap: 8px;
-
-  padding: 7px 10px;
-  border-radius: var(--r-pill);
-
-  background: rgba(255,255,255,.10);
-  border: 1px solid rgba(255,255,255,.14);
-
-  color: #fff;
+.appbar .title {
   font-weight: 800;
-  font-size: 12px;
-  line-height: 1;
-}
-
-.pill select{
-  border: 1px solid rgba(255,255,255,.18);
-  background: rgba(255,255,255,.08);
-  color: #fff;
-  border-radius: 10px;
-  padding: 5px 8px;
-  font-weight: 800;
-  outline: none;
-}
-
-.pill select option{
-  color: #111;
-}
-
-/* Mono helpers */
-.mono{
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--primary);
+  letter-spacing: -0.02em;
 }
 
 /* -------------------------
-   Panel
+   Industry Navigation (Main Tabs)
 ------------------------- */
-.panel{
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--r-xl);
-  box-shadow: var(--shadow);
-  padding: var(--pad);
-  margin: 12px 0;
-}
-
-.panel-head{
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 12px;
-}
-
-.panel-head h2{
-  margin: 0;
-  font-size: 16px;
-  font-weight: 950;
-  color: var(--navy-900);
-  letter-spacing: .2px;
-}
-
-/* Status */
-.status{
-  display:flex;
-  align-items:center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.badge{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding: 6px 10px;
-  border-radius: var(--r-pill);
-  font-weight: 900;
-  font-size: 12px;
-  border: 1px solid var(--border);
-  background: var(--panel-2);
-  color: var(--text);
-}
-
-.badge.ok{
-  border-color: rgba(40,179,122,.35);
-  background: rgba(40,179,122,.10);
-  color: #0f3a2a;
-}
-
-.badge.err{
-  border-color: rgba(216,74,74,.35);
-  background: rgba(216,74,74,.10);
-  color: #4a0f0f;
-}
-
-#statusText{
-  color: var(--muted);
-  font-weight: 800;
-  font-size: 12.5px;
-}
-
-/* -------------------------
-   Toolbar
-------------------------- */
-.toolbar{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
-.toolbar .group{
-  display:flex;
-  align-items:center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* Buttons */
-.btn{
-  cursor:pointer;
-  border-radius: var(--r-pill);
-  padding: 10px 14px;
-  border: 1px solid var(--border);
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
   background: #fff;
-  color: var(--navy-900);
-  font-weight: 950;
-  font-size: 13px;
-  box-shadow: 0 6px 14px rgba(16,26,43,.10);
-  transition: transform .08s ease, box-shadow .18s ease, border-color .18s ease;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 2rem;
+  overflow-x: auto;
 }
 
-.btn:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(16,26,43,.12);
-  border-color: var(--border-2);
-}
-
-.btn.primary{
-  background: linear-gradient(180deg, rgba(90,141,238,.95), rgba(63,120,230,.95));
-  border-color: rgba(255,255,255,.18);
-  color: #fff;
-}
-
-/* -------------------------
-   Main Tabs (Industries)
-------------------------- */
-.tabs{
-  display:flex;
-  flex-wrap:wrap;
-  gap: var(--gap);
-
-  padding: 12px;
-  margin: 10px 0 14px;
-
-  border-radius: var(--r-xl);
-  background: linear-gradient(180deg, var(--navy-800), var(--navy-950));
-  border: 1px solid rgba(255,255,255,.10);
-  box-shadow: var(--shadow-strong);
-}
-
-.tab{
-  cursor:pointer;
-  user-select:none;
+.tab {
+  cursor: pointer;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  border: 1px solid transparent;
   white-space: nowrap;
-
-  padding: 10px 14px;
-  border-radius: var(--r-pill);
-
-  background: rgba(255,255,255,.10);
-  border: 1px solid rgba(255,255,255,.16);
-
-  color:#fff;
-  font-weight: 900;
-  font-size: 13px;
-  letter-spacing: .2px;
-
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.12),
-    0 6px 14px rgba(0,0,0,.18);
-
-  transition: transform .08s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
 }
 
-.tab:hover{
-  transform: translateY(-1px);
-  background: rgba(255,255,255,.16);
-  border-color: rgba(90,141,238,.55);
+.tab:hover {
+  color: var(--primary);
+  background: var(--primary-soft);
 }
 
-.tab[aria-selected="true"]{
-  background: linear-gradient(180deg, rgba(90,141,238,.95), rgba(63,120,230,.95));
-  border-color: rgba(255,255,255,.22);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.25),
-    0 0 0 3px rgba(90,141,238,.25),
-    0 12px 30px rgba(0,0,0,.28);
+.tab[aria-selected="true"] {
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: var(--shadow-md);
 }
 
 /* -------------------------
-   INDUSTRY VIEW SWITCHING
-   This makes tabs actually change screens.
+   Sub-Navigation (Table Columns)
 ------------------------- */
-.view{ display:none; }
-.view.active{ display:block; }
-
-/* -------------------------
-   Subtabs (Tables)
-------------------------- */
-.subtabs{
-  display:flex;
-  flex-wrap:wrap;
-  gap: 8px;
-
-  padding: 12px;
-  margin: 0 0 14px;
-
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--r-xl);
-  box-shadow: 0 10px 24px rgba(16,26,43,.08);
+.subtabs {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
 }
 
-.subtab{
-  cursor:pointer;
-  user-select:none;
-
-  min-height: 34px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-
-  padding: 8px 12px;
-  border-radius: var(--r-pill);
-
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-
-  color: var(--text);
-  font-weight: 900;
-  font-size: 12.5px;
-
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.90),
-    0 4px 10px rgba(16,26,43,.08);
-
-  transition: transform .08s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
-}
-
-.subtab:hover{
-  transform: translateY(-1px);
+.subtab {
+  cursor: pointer;
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-pill);
   background: #fff;
-  border-color: var(--border-2);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.95),
-    0 8px 16px rgba(16,26,43,.10);
+  border: 1px solid var(--border-light);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
-.subtab[aria-selected="true"]{
-  background: rgba(40,179,122,.14);
-  border-color: rgba(40,179,122,.55);
-  color: var(--navy-900);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.90),
-    0 0 0 3px rgba(40,179,122,.16),
-    0 10px 22px rgba(16,26,43,.12);
-}
-
-.subtab[aria-disabled="true"],
-.subtab:disabled{
-  opacity:.45;
-  cursor:not-allowed;
-  transform:none;
+.subtab[aria-selected="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
 }
 
 /* -------------------------
-   Cards (Matches your HTML)
+   Industry Content View
 ------------------------- */
-.cards{
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--r-xl);
-  box-shadow: var(--shadow);
-  padding: var(--pad);
-
-  display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
+.view { 
+    display: none; 
+    animation: fadeIn 0.3s ease-in-out;
 }
+.view.active { display: block; }
 
-.carditem{
-  background:#fff;
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: 12px;
-  box-shadow: 0 8px 18px rgba(16,26,43,.08);
-}
-
-.carditem .t{
-  margin:0 0 6px 0;
-  font-weight: 950;
-  color: var(--navy-900);
-  letter-spacing: .2px;
-}
-
-.carditem .meta{
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 850;
-  margin-bottom: 8px;
-}
-
-.carditem .d{
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 850;
-  margin: 0 0 8px 0;
-}
-
-.carditem .b{
-  color: var(--text);
-  font-size: 13px;
-  line-height: 1.35;
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* -------------------------
-   Empty / Loading
+   Card Grid (The Data)
 ------------------------- */
-.empty, .loading{
-  background: var(--panel);
-  border: 1px dashed var(--border-2);
-  border-radius: var(--r-xl);
-  padding: 16px;
-  color: var(--muted);
-  font-weight: 850;
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
 }
 
-/* Debug payload */
-details{
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--r-xl);
-  padding: 12px;
+.carditem {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
 }
 
-summary{
-  cursor:pointer;
-  font-weight: 950;
-  color: var(--navy-900);
+/* Vertical Accent Bar on Card */
+.carditem::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--primary);
+  opacity: 0.7;
 }
 
-pre{
-  overflow:auto;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: 12px;
+.carditem .t {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  color: var(--text-main);
+}
+
+.carditem .meta {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-light);
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.carditem .d {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 0.5rem;
+}
+
+.carditem .b {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.6;
 }
 
 /* -------------------------
-   Mobile
+   Helper Components (Buttons/Badges)
 ------------------------- */
-@media (max-width: 520px){
-  .container, main{ padding: 10px; }
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
 
-  .appbar{ padding: 10px 12px; }
-  .appbar .title{ font-size: 13px; }
+.badge.ok { background: var(--accent-soft); color: var(--accent); }
 
-  .tabs{ padding: 10px; gap: 8px; }
-  .tab{ padding: 9px 12px; font-size: 12.5px; }
+.btn.primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
 
-  .subtabs{ padding: 10px; gap: 8px; }
-  .subtab{ padding: 8px 11px; font-size: 12px; }
-
-  .cards{ grid-template-columns: 1fr; padding: 12px; }
+/* -------------------------
+   Responsive Tweaks
+------------------------- */
+@media (max-width: 768px) {
+  .cards { grid-template-columns: 1fr; }
+  .tabs { padding: 0.25rem; }
+  .tab { padding: 0.5rem 0.75rem; }
 }
