@@ -1,73 +1,167 @@
 /* =========================================================
-   JDAS — Tailored Industry Updates
-   Visual Structure:
-   - Main Tabs = Industry
-   - Subtabs = Dataverse Tables (for selected Industry)
-   CSS can't change data order, but it WILL:
-   - Make tabs/subtabs look organized & framed
-   - Prevent "jumbled" button clusters
-   - Improve readability + spacing + wrapping
+   JDAS — Tailored Industry Updates (Clean Full CSS)
+   Matches templates/index.html structure exactly:
+   - .appbar, .container, .panel
+   - #industryTabs .tab (Industry)
+   - .view.active switching (Industry views)
+   - .subtabs .subtab (Tables)
+   - .cards .carditem (.t .meta .d .b)
    ========================================================= */
 
+/* -------------------------
+   Theme Tokens
+------------------------- */
 :root{
+  /* Base */
   --bg: #eef2f6;
   --panel: #ffffff;
   --panel-2: #f7f9fc;
 
+  /* Navy scale */
   --navy-950:#070c16;
   --navy-900:#0b1220;
+  --navy-850:#0f1729;
   --navy-800:#101a2b;
+  --navy-750:#141f35;
   --navy-700:#172338;
 
+  /* Text */
+  --text:#1f2a3a;
+  --muted:#5b6a7d;
+  --muted-2:#6b7b90;
+
+  /* Borders */
   --border:#d8dee8;
   --border-2:#c8d0de;
 
-  --text:#1f2a3a;
-  --muted:#5b6a7d;
-
+  /* Accents */
   --blue:#5a8dee;
   --blue-2:#3f78e6;
   --green:#28b37a;
+  --red:#d84a4a;
 
-  --shadow: 0 12px 30px rgba(16,26,43,.10);
-
+  /* Radius */
   --r-xl: 18px;
   --r-lg: 14px;
   --r-md: 12px;
+  --r-pill: 999px;
 
+  /* Spacing */
   --pad: 14px;
   --gap: 10px;
+
+  /* Shadows */
+  --shadow: 0 12px 30px rgba(16,26,43,.10);
+  --shadow-strong: 0 16px 40px rgba(7,12,22,.18);
+
+  /* Focus */
+  --focus: 3px solid rgba(90,141,238,.40);
 }
 
 /* -------------------------
-   Base
+   Base / Reset-ish
 ------------------------- */
-html, body{
-  background: var(--bg);
-  color: var(--text);
-}
-
 *{ box-sizing:border-box; }
 
-a{ color: var(--blue-2); }
-a:hover{ opacity:.9; }
+html, body{
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+}
+
+a{ color: var(--blue-2); text-decoration: none; }
+a:hover{ text-decoration: underline; }
 
 :focus-visible{
-  outline: 3px solid rgba(90,141,238,.40);
+  outline: var(--focus);
   outline-offset: 2px;
   border-radius: 10px;
 }
 
-/* If you have a wrapper */
-.container, main, #app, .app{
+/* -------------------------
+   Layout
+------------------------- */
+.container, main{
   max-width: 1180px;
   margin: 0 auto;
   padding: 12px;
 }
 
 /* -------------------------
-   GLOBAL FRAMING
-   Use this on any main blocks you already have
+   App Bar (Top Header)
+------------------------- */
+.appbar{
+  position: sticky;
+  top: 0;
+  z-index: 10;
+
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+
+  padding: 12px 14px;
+  background: linear-gradient(180deg, var(--navy-800), var(--navy-950));
+  border-bottom: 1px solid rgba(255,255,255,.10);
+  box-shadow: var(--shadow-strong);
+}
+
+.appbar .title{
+  color: #fff;
+  font-weight: 900;
+  letter-spacing: .2px;
+  font-size: 14px;
+}
+
+.appbar .right{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Pills used across UI */
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+
+  padding: 7px 10px;
+  border-radius: var(--r-pill);
+
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.14);
+
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.pill select{
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.08);
+  color: #fff;
+  border-radius: 10px;
+  padding: 5px 8px;
+  font-weight: 800;
+  outline: none;
+}
+
+.pill select option{
+  color: #111;
+}
+
+/* Mono helpers */
+.mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 800;
+}
+
+/* -------------------------
+   Panel
 ------------------------- */
 .panel{
   background: var(--panel);
@@ -78,8 +172,110 @@ a:hover{ opacity:.9; }
   margin: 12px 0;
 }
 
+.panel-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.panel-head h2{
+  margin: 0;
+  font-size: 16px;
+  font-weight: 950;
+  color: var(--navy-900);
+  letter-spacing: .2px;
+}
+
+/* Status */
+.status{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 6px 10px;
+  border-radius: var(--r-pill);
+  font-weight: 900;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.badge.ok{
+  border-color: rgba(40,179,122,.35);
+  background: rgba(40,179,122,.10);
+  color: #0f3a2a;
+}
+
+.badge.err{
+  border-color: rgba(216,74,74,.35);
+  background: rgba(216,74,74,.10);
+  color: #4a0f0f;
+}
+
+#statusText{
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 12.5px;
+}
+
 /* -------------------------
-   INDUSTRY NAV (Main Tabs)
+   Toolbar
+------------------------- */
+.toolbar{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.toolbar .group{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Buttons */
+.btn{
+  cursor:pointer;
+  border-radius: var(--r-pill);
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--navy-900);
+  font-weight: 950;
+  font-size: 13px;
+  box-shadow: 0 6px 14px rgba(16,26,43,.10);
+  transition: transform .08s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(16,26,43,.12);
+  border-color: var(--border-2);
+}
+
+.btn.primary{
+  background: linear-gradient(180deg, rgba(90,141,238,.95), rgba(63,120,230,.95));
+  border-color: rgba(255,255,255,.18);
+  color: #fff;
+}
+
+/* -------------------------
+   Main Tabs (Industries)
 ------------------------- */
 .tabs{
   display:flex;
@@ -92,24 +288,22 @@ a:hover{ opacity:.9; }
   border-radius: var(--r-xl);
   background: linear-gradient(180deg, var(--navy-800), var(--navy-950));
   border: 1px solid rgba(255,255,255,.10);
-
-  box-shadow: 0 14px 34px rgba(7,12,22,.18);
+  box-shadow: var(--shadow-strong);
 }
 
-/* Each industry button */
 .tab{
   cursor:pointer;
   user-select:none;
-  white-space: nowrap; /* keeps “Business Analytics & Ops” clean */
+  white-space: nowrap;
 
   padding: 10px 14px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 
   background: rgba(255,255,255,.10);
   border: 1px solid rgba(255,255,255,.16);
 
   color:#fff;
-  font-weight: 850;
+  font-weight: 900;
   font-size: 13px;
   letter-spacing: .2px;
 
@@ -117,11 +311,7 @@ a:hover{ opacity:.9; }
     inset 0 1px 0 rgba(255,255,255,.12),
     0 6px 14px rgba(0,0,0,.18);
 
-  transition:
-    transform .08s ease,
-    background .18s ease,
-    border-color .18s ease,
-    box-shadow .18s ease;
+  transition: transform .08s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
 }
 
 .tab:hover{
@@ -133,7 +323,6 @@ a:hover{ opacity:.9; }
 .tab[aria-selected="true"]{
   background: linear-gradient(180deg, rgba(90,141,238,.95), rgba(63,120,230,.95));
   border-color: rgba(255,255,255,.22);
-
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.25),
     0 0 0 3px rgba(90,141,238,.25),
@@ -141,8 +330,14 @@ a:hover{ opacity:.9; }
 }
 
 /* -------------------------
-   SUBTABS STRIP (Tables for selected Industry)
-   Key: looks like a “Table chooser” module, not a pile of pills
+   INDUSTRY VIEW SWITCHING
+   This makes tabs actually change screens.
+------------------------- */
+.view{ display:none; }
+.view.active{ display:block; }
+
+/* -------------------------
+   Subtabs (Tables)
 ------------------------- */
 .subtabs{
   display:flex;
@@ -158,36 +353,30 @@ a:hover{ opacity:.9; }
   box-shadow: 0 10px 24px rgba(16,26,43,.08);
 }
 
-/* Table buttons */
 .subtab{
   cursor:pointer;
   user-select:none;
 
-  /* make wrapping consistent */
   min-height: 34px;
   display:inline-flex;
   align-items:center;
   justify-content:center;
 
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 
   background: var(--panel-2);
   border: 1px solid var(--border);
 
   color: var(--text);
-  font-weight: 850;
+  font-weight: 900;
   font-size: 12.5px;
 
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.90),
     0 4px 10px rgba(16,26,43,.08);
 
-  transition:
-    transform .08s ease,
-    background .15s ease,
-    border-color .15s ease,
-    box-shadow .15s ease;
+  transition: transform .08s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
 }
 
 .subtab:hover{
@@ -199,12 +388,10 @@ a:hover{ opacity:.9; }
     0 8px 16px rgba(16,26,43,.10);
 }
 
-/* Selected table */
 .subtab[aria-selected="true"]{
   background: rgba(40,179,122,.14);
   border-color: rgba(40,179,122,.55);
   color: var(--navy-900);
-
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.90),
     0 0 0 3px rgba(40,179,122,.16),
@@ -219,75 +406,21 @@ a:hover{ opacity:.9; }
 }
 
 /* -------------------------
-   OPTIONAL: “Industry Section Frames”
-   (use when you render per-industry blocks)
-   Example:
-   <section class="industry-frame">
-     <div class="industry-header">...</div>
-     <div class="industry-subtabs">...</div>
-     <div class="industry-results">...</div>
-   </section>
+   Cards (Matches your HTML)
 ------------------------- */
-.industry-frame{
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--r-xl);
-  box-shadow: var(--shadow);
-  padding: var(--pad);
-  margin: 14px 0;
-}
-
-.industry-header{
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 12px;
-}
-
-.industry-title{
-  margin:0;
-  font-size: 16px;
-  font-weight: 950;
-  color: var(--navy-900);
-  letter-spacing: .2px;
-}
-
-.industry-desc{
-  margin:4px 0 0;
-  color: var(--muted);
-  font-size: 12.5px;
-}
-
-.industry-subtabs{
-  margin: 8px 0 12px;
-  padding: 10px;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-}
-
-/* -------------------------
-   RESULTS / CARDS FRAMING
-------------------------- */
-.results, .cards, .list{
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--r-xl);
-  box-shadow: var(--shadow);
-  padding: var(--pad);
-}
-
-/* Cards layout */
 .cards{
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow);
+  padding: var(--pad);
+
   display:grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
 }
 
-.card{
+.carditem{
   background:#fff;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
@@ -295,29 +428,75 @@ a:hover{ opacity:.9; }
   box-shadow: 0 8px 18px rgba(16,26,43,.08);
 }
 
-.card .title, .card h3{
+.carditem .t{
   margin:0 0 6px 0;
   font-weight: 950;
   color: var(--navy-900);
+  letter-spacing: .2px;
 }
 
-.card .meta{
+.carditem .meta{
   color: var(--muted);
   font-size: 12px;
+  font-weight: 850;
   margin-bottom: 8px;
 }
 
-.card p{
-  margin:0;
+.carditem .d{
   color: var(--text);
+  font-size: 13px;
+  font-weight: 850;
+  margin: 0 0 8px 0;
+}
+
+.carditem .b{
+  color: var(--text);
+  font-size: 13px;
   line-height: 1.35;
 }
 
 /* -------------------------
-   MOBILE
+   Empty / Loading
+------------------------- */
+.empty, .loading{
+  background: var(--panel);
+  border: 1px dashed var(--border-2);
+  border-radius: var(--r-xl);
+  padding: 16px;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+/* Debug payload */
+details{
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 12px;
+}
+
+summary{
+  cursor:pointer;
+  font-weight: 950;
+  color: var(--navy-900);
+}
+
+pre{
+  overflow:auto;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 12px;
+}
+
+/* -------------------------
+   Mobile
 ------------------------- */
 @media (max-width: 520px){
-  .container, main, #app, .app{ padding: 10px; }
+  .container, main{ padding: 10px; }
+
+  .appbar{ padding: 10px 12px; }
+  .appbar .title{ font-size: 13px; }
 
   .tabs{ padding: 10px; gap: 8px; }
   .tab{ padding: 9px 12px; font-size: 12.5px; }
@@ -325,5 +504,5 @@ a:hover{ opacity:.9; }
   .subtabs{ padding: 10px; gap: 8px; }
   .subtab{ padding: 8px 11px; font-size: 12px; }
 
-  .cards{ grid-template-columns: 1fr; }
+  .cards{ grid-template-columns: 1fr; padding: 12px; }
 }
