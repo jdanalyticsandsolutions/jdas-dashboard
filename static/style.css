@@ -7,9 +7,9 @@
   /* Refined Color Palette */
   --bg: #f3f4f6;
   --surface: #ffffff;
-  --primary: #2563eb;       /* Modern Blue */
+  --primary: #2563eb;        /* Modern Blue */
   --primary-soft: #eff6ff;
-  --accent: #10b981;        /* Modern Green */
+  --accent: #10b981;         /* Modern Green */
   --accent-soft: #ecfdf5;
   
   /* Neutral Tones */
@@ -173,7 +173,6 @@ body {
   overflow: hidden;
 }
 
-/* Vertical Accent Bar on Card */
 .carditem::before {
   content: "";
   position: absolute;
@@ -234,6 +233,21 @@ body {
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* -------------------------
+   UI HIDER - REMOVING JSON VIEW
+------------------------- */
+
+/* Targets the 'JSON' option in the dropdown selector */
+select option[value="JSON"], 
+select option[value="json"],
+option:nth-child(2) {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
 }
 
 /* -------------------------
