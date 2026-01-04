@@ -1,4 +1,3 @@
-# app.py — JDAS Optimized Industry Updates Backend
 import os
 import time
 import asyncio
@@ -13,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-# --- Configuration & Environment ---
+# --- Initialization ---
 load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -21,45 +20,40 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 
 app = FastAPI(title="JDAS Analytics API", version="2.0.0")
 
-# --- Constants & Dataverse Config ---
+# --- Environment Config ---
+TENANT_ID = os.getenv("TENANT_ID") or os.getenv("AZURE_TENANT_ID")
+CLIENT_ID = os.getenv("CLIENT_ID") or os.getenv("AZURE_CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET") or os.getenv("AZURE_CLIENT_SECRET")
 DATAVERSE_URL = (os.getenv("DATAVERSE_URL") or "").rstrip("/")
-TENANT_ID = os.getenv("TENANT_ID")
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+API_BASE = f"{DATAVERSE_URL}/api/data/v9.2"
 DATAVERSE_ENABLED = all([TENANT_ID, CLIENT_ID, CLIENT_SECRET, DATAVERSE_URL])
 
-# --- Dashboard Mapping (UI Logic) ---
-# This ensures the backend and frontend speak the same 'Industry' language
+# --- Dashboard Design Registry ---
+# Matches your index.html and style.css perfectly
 INDUSTRY_CONFIG = {
     "real_estate": {
         "label": "Real Estate",
-        "tables": ["housingmarketinsight", "marketoutlook"],
-        "accent": "#2563eb" # Blue
+        "tables": ["housingmarketinsight", "marketoutlook"]
     },
     "automotive": {
         "label": "Automotive",
-        "tables": ["vehiclesalesforecast"],
-        "accent": "#475569" # Slate
+        "tables": ["vehiclesalesforecast"]
     },
     "analytics_ops": {
         "label": "Analytics & Ops",
-        "tables": ["analyticsparadigm"],
-        "accent": "#7c3aed" # Violet
+        "tables": ["analyticsparadigm"]
     },
     "ai": {
         "label": "AI Developments",
-        "tables": ["aiindustryinsight"],
-        "accent": "#db2777" # Pink
+        "tables": ["aiindustryinsight"]
     },
     "market": {
         "label": "Market Insight",
-        "tables": ["marketinsight", "markettrendinsight", "marketanalysis"],
-        "accent": "#059669" # Emerald
+        "tables": ["marketinsight", "markettrendinsight", "marketanalysis"]
     }
 }
 
-# Mapping Dataverse logical names to friendly names and UI fields
-TABLE_REGISTRY = {
+TABLE_MAPPINGS = {
     "marketinsight": {"logical": "jdas_marketinsight", "title": "jdas_marketcategory", "body": "jdas_markettrends", "tag": "Market"},
     "housingmarketinsight": {"logical": "jdas_housingmarketinsight", "title": "jdas_insighttheme", "body": "jdas_currentinsight", "tag": "Housing"},
     "vehiclesalesforecast": {"logical": "jdas_vehiclesalesforecast", "title": "jdas_salesmetric", "body": "jdas_strategicinsight", "tag": "Sales"},
@@ -70,79 +64,97 @@ TABLE_REGISTRY = {
     "aiindustryinsight": {"logical": "jdas_aiindustryinsight", "title": "jdas_insightcategory", "body": "jdas_assistantperspective", "tag": "AI"},
 }
 
-# --- Shared Utilities (Caching/Client) ---
-client = None
-table_cache = {}
-CACHE_TTL = 300 # 5 minutes
+# --- Dataverse Engine (Your Working Logic) ---
+_token_cache = {}
+_token_expiry_ts = 0.0
+_entityset_cache = {}
+client_http = None
 
 async def get_client():
-    global client
-    if client is None: client = httpx.AsyncClient(timeout=15.0)
-    return client
+    global client_http
+    if client_http is None: client_http = httpx.AsyncClient(timeout=20.0)
+    return client_http
 
 async def get_access_token():
-    # ... logic stays largely same as your original ...
-    # Simplified for space; assume your original token logic here
-    pass
+    global _token_expiry_ts
+    if "token" in _token_cache and time.time() < _token_expiry_ts:
+        return _token_cache["token"]
+    
+    url = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
+    data = {
+        "client_id": CLIENT_ID, "client_secret": CLIENT_SECRET,
+        "grant_type": "client_credentials", "scope": f"{DATAVERSE_URL}/.default",
+    }
+    c = await get_client()
+    r = await c.post(url, data=data)
+    j = r.json()
+    _token_cache["token"] = j["access_token"]
+    _token_expiry_ts = time.time() + int(j.get("expires_in", 3600)) - 60
+    return _token_cache["token"]
 
-# --- Core Logic: Normalization ---
-def normalize_row(row: dict, table_key: str) -> Optional[dict]:
-    """Transforms raw Dataverse JSON into clean UI Cards."""
-    cfg = TABLE_REGISTRY.get(table_key)
+async def resolve_entity_set(logical_name: str):
+    if logical_name in _entityset_cache: return _entityset_cache[logical_name]
+    token = await get_access_token()
+    url = f"{API_BASE}/EntityDefinitions(LogicalName='{logical_name}')?$select=EntitySetName"
+    c = await get_client()
+    r = await c.get(url, headers={"Authorization": f"Bearer {token}"})
+    es = r.json().get("EntitySetName")
+    _entityset_cache[logical_name] = es
+    return es
+
+async def fetch_dv_data(logical_name: str, top: int):
+    es = await resolve_entity_set(logical_name)
+    token = await get_access_token()
+    url = f"{API_BASE}/{es}?$top={top}&$orderby=createdon desc"
+    c = await get_client()
+    r = await c.get(url, headers={"Authorization": f"Bearer {token}", "Prefer": "odata.maxpagesize=50"})
+    return r.json().get("value", [])
+
+# --- Normalization ---
+def normalize(row: dict, table_key: str):
+    cfg = TABLE_MAPPINGS.get(table_key)
     if not cfg: return None
     
-    # Extract data with fallbacks to empty strings (prevents 'None' appearing in UI)
-    title = row.get(cfg["title"]) or row.get("jdas_name") or "Untitled Update"
-    body = row.get(cfg["body"]) or row.get("jdas_description") or ""
-    tag = cfg.get("tag", "General")
+    title = row.get(cfg["title"]) or row.get("jdas_name") or "Update"
+    body = row.get(cfg["body"]) or ""
     
     return {
-        "id": row.get(f"{cfg['logical']}id"),
         "table": cfg["logical"],
         "title": str(title).strip(),
         "body": str(body).strip(),
-        "tag": tag,
+        "tag": cfg["tag"],
         "createdOn": row.get("createdon")
     }
 
-# --- API Endpoints ---
-
+# --- Routes ---
 @app.get("/", response_class=HTMLResponse)
-def home():
-    return FileResponse(str(TEMPLATES_DIR / "index.html"))
+async def home():
+    return FileResponse(TEMPLATES_DIR / "index.html")
 
 @app.get("/api/v1/summary/industry-updates")
-async def industry_updates(top: int = 10):
-    """Main dashboard data provider."""
+async def industry_updates(top: int = Query(10)):
     blocks = {}
     
-    async def fetch_industry(key, config):
-        industry_items = []
+    async def process_industry(ind_key, config):
+        items = []
         for t_key in config["tables"]:
-            # Logic: Fetch from Dataverse (Simplified for this snippet)
-            # In your real code, call your existing dv_paged_get logic here
-            raw_rows = [] # Placeholder for actual DV fetch
-            
-            # Normalize and add to list
-            for r in raw_rows:
-                norm = normalize_row(r, t_key)
-                if norm: industry_items.append(norm)
+            logical = TABLE_MAPPINGS[t_key]["logical"]
+            try:
+                raw_data = await fetch_dv_data(logical, top)
+                for r in raw_data:
+                    n = normalize(r, t_key)
+                    if n: items.append(n)
+            except Exception as e:
+                print(f"Error fetching {t_key}: {e}")
         
-        blocks[key] = {
-            "label": config["label"],
-            "accent": config["accent"],
-            "items": industry_items
-        }
+        # Sort combined items by date
+        items.sort(key=lambda x: x.get("createdOn", ""), reverse=True)
+        blocks[ind_key] = {"items": items}
 
-    # Parallel execution for speed
-    await asyncio.gather(*[fetch_industry(k, v) for k, v in INDUSTRY_CONFIG.items()])
-    
+    await asyncio.gather(*[process_industry(k, v) for k, v in INDUSTRY_CONFIG.items()])
     return {"ok": True, "blocks": blocks}
 
-# --- Static Mounting & Lifecycle ---
+# --- Middleware & Static ---
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
