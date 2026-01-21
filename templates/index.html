@@ -17,26 +17,29 @@
   </header>
 
   <main class="container">
-    
+
     <div class="toolbar">
       <div class="group">
         <span class="badge ok" id="statusBadge">OK</span>
         <span id="statusText">System Ready</span>
       </div>
-      
+
       <div class="group">
         <label class="subtab">
-          Rows: 
+          Rows:
           <select id="topSelect" style="border:none; background:transparent; font-weight:700;">
             <option value="5">5</option>
             <option value="10" selected>10</option>
             <option value="20">20</option>
           </select>
         </label>
+
+        <!-- NEW: Display Mode -->
         <label class="subtab">
-          View:
-          <select id="viewSelect" style="border:none; background:transparent; font-weight:700;">
-            <option value="cards">Cards</option>
+          Display:
+          <select id="displaySelect" style="border:none; background:transparent; font-weight:700;">
+            <option value="cards" selected>Cards</option>
+            <option value="table">Dataverse Table</option>
             <option value="raw">JSON</option>
           </select>
         </label>
@@ -45,10 +48,14 @@
 
     <nav class="tabs" id="industryTabs" role="tablist"></nav>
 
-    <section id="industryViews">
-      </section>
+    <!-- Cards View (existing) -->
+    <section id="cardsView"></section>
 
-    <div class="view" id="debugView">
+    <!-- NEW: Dataverse-style Table View -->
+    <section id="tableView" style="display:none;"></section>
+
+    <!-- JSON Debug View (existing) -->
+    <div class="view" id="debugView" style="display:none;">
       <pre id="rawJson" class="carditem" style="font-size: 11px; overflow: auto;"></pre>
     </div>
 
@@ -60,7 +67,7 @@
 
       // Configuration
       const API_BASE = window.API_BASE || `${location.protocol}//${location.host}`;
-      
+
       const INDUSTRIES = [
         { key: "real_estate", label: "Real Estate", tables: [
             { key: "jdas_housingmarketinsight", label: "Housing Market Insight" },
@@ -81,22 +88,54 @@
         ]}
       ];
 
+      // EXISTING Cards field mapping (kept)
       const FIELD_MAP = {
         title: ["title","name","topic","headline"],
         body: ["body","insight","notes","content","text","description"],
         tag: ["tag", "category"]
       };
 
-      // Helper to grab first available data field
+      // NEW: Dataverse-like columns per table
+      // If your API uses different field names (schema names), update ONLY this section.
+      const TABLE_COLUMNS = {
+        // AI Dataverse columns (based on your screenshot)
+        "jdas_aiindustryinsight": [
+          { header: "Assistant Perspective", keys: ["assistant_perspective", "assistantperspective", "AssistantPerspective"] },
+          { header: "Future Unified View", keys: ["future_unified_view", "futureunifiedview", "FutureUnifiedView"] },
+          { header: "Industry Phase Description", keys: ["industry_phase_description", "industryphasedescription", "IndustryPhaseDescription"] },
+          { header: "Insight Category", keys: ["insight_category", "insightcategory", "InsightCategory"] }
+        ]
+      };
+
+      // Helper: pick first available field (cards)
       const pick = (obj, keys) => {
-        for (const k of keys) if (obj?.[k]) return obj[k];
+        for (const k of keys) if (obj?.[k] != null && String(obj[k]).trim() !== "") return obj[k];
         return "";
       };
+
+      // Helper: pick first available key from a list (table)
+      const pickAny = (obj, keys) => {
+        for (const k of keys) {
+          if (obj && Object.prototype.hasOwnProperty.call(obj, k) && obj[k] != null && String(obj[k]).trim() !== "") {
+            return obj[k];
+          }
+        }
+        return "";
+      };
+
+      // Helper: safe text
+      const esc = (s) => String(s ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
 
       const state = {
         blocks: {},
         activeIndustry: "real_estate",
-        activeTable: ""
+        activeTable: "",
+        displayMode: "cards"
       };
 
       // --- Rendering Logic ---
@@ -110,46 +149,134 @@
         `).join('');
       }
 
-      async function updateDisplay() {
-        const container = document.getElementById("industryViews");
-        const ind = INDUSTRIES.find(i => i.key === state.activeIndustry);
-        
-        // Update Nav UI
-        document.querySelectorAll('.tab').forEach(t => {
-          t.setAttribute('aria-selected', t.dataset.key === state.activeIndustry);
-        });
+      function getActiveIndustryObj() {
+        return INDUSTRIES.find(i => i.key === state.activeIndustry) || null;
+      }
 
+      function ensureActiveTable(ind) {
         if (!ind) return;
-
-        // Set default table if none selected for this industry
         if (!state.activeTable || !ind.tables.some(t => t.key === state.activeTable)) {
           state.activeTable = ind.tables[0].key;
         }
+      }
 
-        // Build HTML for the single active view
+      function renderSubtabs(ind) {
+        return `
+          <div class="subtabs">
+            ${ind.tables.map(t => `
+              <div class="subtab" data-table="${t.key}" aria-selected="${t.key === state.activeTable}">
+                ${t.label}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function getFilteredRows() {
         const items = state.blocks[state.activeIndustry]?.items || [];
-        const filtered = items.filter(item => item.table === state.activeTable);
+        return items.filter(item => item.table === state.activeTable);
+      }
 
-        container.innerHTML = `
+      function updateNavUI() {
+        document.querySelectorAll('.tab').forEach(t => {
+          t.setAttribute('aria-selected', t.dataset.key === state.activeIndustry);
+        });
+      }
+
+      function setViewVisibility() {
+        const cardsEl = document.getElementById("cardsView");
+        const tableEl = document.getElementById("tableView");
+        const debugEl = document.getElementById("debugView");
+
+        cardsEl.style.display = state.displayMode === "cards" ? "block" : "none";
+        tableEl.style.display = state.displayMode === "table" ? "block" : "none";
+        debugEl.style.display = state.displayMode === "raw" ? "block" : "none";
+      }
+
+      function renderCards() {
+        const cardsContainer = document.getElementById("cardsView");
+        const ind = getActiveIndustryObj();
+        if (!ind) return;
+
+        ensureActiveTable(ind);
+        const filtered = getFilteredRows();
+
+        cardsContainer.innerHTML = `
           <div class="view active">
-            <div class="subtabs">
-              ${ind.tables.map(t => `
-                <div class="subtab" data-table="${t.key}" aria-selected="${t.key === state.activeTable}">
-                  ${t.label}
-                </div>
-              `).join('')}
-            </div>
+            ${renderSubtabs(ind)}
             <div class="cards">
               ${filtered.length ? filtered.map(row => `
                 <div class="carditem">
-                  <div class="meta">${pick(row, FIELD_MAP.tag)}</div>
-                  <div class="t">${pick(row, FIELD_MAP.title)}</div>
-                  <div class="b">${pick(row, FIELD_MAP.body)}</div>
+                  <div class="meta">${esc(pick(row, FIELD_MAP.tag))}</div>
+                  <div class="t">${esc(pick(row, FIELD_MAP.title))}</div>
+                  <div class="b">${esc(pick(row, FIELD_MAP.body))}</div>
                 </div>
               `).join('') : '<div class="carditem">No updates available for this section.</div>'}
             </div>
           </div>
         `;
+      }
+
+      function renderDataverseTable() {
+        const tableContainer = document.getElementById("tableView");
+        const ind = getActiveIndustryObj();
+        if (!ind) return;
+
+        ensureActiveTable(ind);
+        const filtered = getFilteredRows();
+
+        // Choose column set:
+        // 1) Table-specific columns if defined
+        // 2) Otherwise, fall back to showing keys detected from first row (simple generic table)
+        const configuredCols = TABLE_COLUMNS[state.activeTable];
+
+        let columns = configuredCols;
+        if (!columns) {
+          // Generic fallback: show up to first 6 keys (excluding internal keys)
+          const sample = filtered[0] || {};
+          const keys = Object.keys(sample).filter(k => !["table"].includes(k)).slice(0, 6);
+          columns = keys.map(k => ({ header: k, keys: [k] }));
+        }
+
+        const headerHtml = columns.map(c => `<th>${esc(c.header)}</th>`).join("");
+
+        const rowsHtml = filtered.length ? filtered.map(row => {
+          const cells = columns.map(c => `<td>${esc(pickAny(row, c.keys))}</td>`).join("");
+          return `<tr>${cells}</tr>`;
+        }).join("") : `<tr><td colspan="${columns.length}" style="padding:12px;">No rows found.</td></tr>`;
+
+        tableContainer.innerHTML = `
+          <div class="view active">
+            ${renderSubtabs(ind)}
+
+            <div class="carditem" style="padding:12px; margin-bottom:10px;">
+              <div style="font-weight:800; margin-bottom:6px;">Dataverse Reference View</div>
+              <div style="font-size:12px; opacity:.85;">
+                This view is meant to mirror your Dataverse table structure so updates are easier to track.
+              </div>
+            </div>
+
+            <div class="carditem" style="padding:0; overflow:auto;">
+              <table class="dvtable" style="width:100%; border-collapse:collapse; font-size:13px;">
+                <thead>
+                  <tr>${headerHtml}</tr>
+                </thead>
+                <tbody>
+                  ${rowsHtml}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+
+      function updateDisplay() {
+        updateNavUI();
+        setViewVisibility();
+
+        if (state.displayMode === "cards") renderCards();
+        if (state.displayMode === "table") renderDataverseTable();
+        // raw view renders via fetchData
       }
 
       // --- Data Fetching ---
@@ -158,16 +285,21 @@
         const status = document.getElementById("statusText");
         const top = document.getElementById("topSelect").value;
         status.textContent = "Updating...";
-        
+
         try {
           const res = await fetch(`${API_BASE}/api/v1/summary/industry-updates?top=${top}`);
           const data = await res.json();
+
           if (data.ok) {
             state.blocks = data.blocks;
             status.textContent = "Last updated: " + new Date().toLocaleTimeString();
-            updateDisplay();
-            // Update Debug view
+
+            // Debug view always updated
             document.getElementById("rawJson").textContent = JSON.stringify(data, null, 2);
+
+            updateDisplay();
+          } else {
+            status.textContent = "API returned not-ok";
           }
         } catch (e) {
           status.textContent = "Connection Error";
@@ -186,7 +318,8 @@
           updateDisplay();
         }
 
-        if (subtab) {
+        // Only treat subtabs as table subtabs if they have data-table
+        if (subtab && subtab.dataset.table) {
           state.activeTable = subtab.dataset.table;
           updateDisplay();
         }
@@ -194,9 +327,11 @@
 
       document.getElementById("refreshBtn").onclick = fetchData;
       document.getElementById("topSelect").onchange = fetchData;
-      document.getElementById("viewSelect").onchange = (e) => {
-        document.getElementById("debugView").style.display = e.target.value === "raw" ? "block" : "none";
-        document.getElementById("industryViews").style.display = e.target.value === "raw" ? "none" : "block";
+
+      // NEW: display select (replaces old viewSelect)
+      document.getElementById("displaySelect").onchange = (e) => {
+        state.displayMode = e.target.value;
+        updateDisplay();
       };
 
       // --- Init ---
@@ -207,5 +342,402 @@
 
     })();
   </script>
+
+  <!-- Small CSS patch for the Dataverse table (kept here so it works immediately).
+       If you prefer, we can move this into /static/style.css next step. -->
+  <style>
+    .dvtable th{
+      position: sticky;
+      top: 0;
+      background: #f4f6f8;
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(0,0,0,.12);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .dvtable td{
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(0,0,0,.08);
+      vertical-align: top;
+      min-width: 180px;
+    }
+    .dvtable tr:hover td{
+      background: rgba(0,0,0,.03);
+    }
+  </style>
+
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>JD Analytics — Industry Insights</title>
+  <link rel="stylesheet" href="/static/style.css?v=2.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <header class="appbar">
+    <div class="title">JD ANALYTICS</div>
+    <div class="right">
+      <button class="btn primary" id="refreshBtn">Refresh Data</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="toolbar">
+      <div class="group">
+        <span class="badge ok" id="statusBadge">OK</span>
+        <span id="statusText">System Ready</span>
+      </div>
+
+      <div class="group">
+        <label class="subtab">
+          Rows:
+          <select id="topSelect" style="border:none; background:transparent; font-weight:700;">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+          </select>
+        </label>
+
+        <!-- NEW: Display Mode -->
+        <label class="subtab">
+          Display:
+          <select id="displaySelect" style="border:none; background:transparent; font-weight:700;">
+            <option value="cards" selected>Cards</option>
+            <option value="table">Dataverse Table</option>
+            <option value="raw">JSON</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <nav class="tabs" id="industryTabs" role="tablist"></nav>
+
+    <!-- Cards View (existing) -->
+    <section id="cardsView"></section>
+
+    <!-- NEW: Dataverse-style Table View -->
+    <section id="tableView" style="display:none;"></section>
+
+    <!-- JSON Debug View (existing) -->
+    <div class="view" id="debugView" style="display:none;">
+      <pre id="rawJson" class="carditem" style="font-size: 11px; overflow: auto;"></pre>
+    </div>
+
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      // Configuration
+      const API_BASE = window.API_BASE || `${location.protocol}//${location.host}`;
+
+      const INDUSTRIES = [
+        { key: "real_estate", label: "Real Estate", tables: [
+            { key: "jdas_housingmarketinsight", label: "Housing Market Insight" },
+            { key: "jdas_marketoutlook", label: "Market Outlook" }
+        ]},
+        { key: "automotive", label: "Automotive", tables: [
+            { key: "jdas_vehiclesalesforecast", label: "Sales Forecast" }
+        ]},
+        { key: "analytics_ops", label: "Analytics & Ops", tables: [
+            { key: "jdas_analyticsparadigm", label: "Paradigm" }
+        ]},
+        { key: "ai", label: "AI Developments", tables: [
+            { key: "jdas_aiindustryinsight", label: "AI Insights" }
+        ]},
+        { key: "market", label: "Market Insight", tables: [
+            { key: "jdas_marketinsight", label: "Market Insight" },
+            { key: "jdas_markettrendinsight", label: "Trend Insight" }
+        ]}
+      ];
+
+      // EXISTING Cards field mapping (kept)
+      const FIELD_MAP = {
+        title: ["title","name","topic","headline"],
+        body: ["body","insight","notes","content","text","description"],
+        tag: ["tag", "category"]
+      };
+
+      // NEW: Dataverse-like columns per table
+      // If your API uses different field names (schema names), update ONLY this section.
+      const TABLE_COLUMNS = {
+        // AI Dataverse columns (based on your screenshot)
+        "jdas_aiindustryinsight": [
+          { header: "Assistant Perspective", keys: ["assistant_perspective", "assistantperspective", "AssistantPerspective"] },
+          { header: "Future Unified View", keys: ["future_unified_view", "futureunifiedview", "FutureUnifiedView"] },
+          { header: "Industry Phase Description", keys: ["industry_phase_description", "industryphasedescription", "IndustryPhaseDescription"] },
+          { header: "Insight Category", keys: ["insight_category", "insightcategory", "InsightCategory"] }
+        ]
+      };
+
+      // Helper: pick first available field (cards)
+      const pick = (obj, keys) => {
+        for (const k of keys) if (obj?.[k] != null && String(obj[k]).trim() !== "") return obj[k];
+        return "";
+      };
+
+      // Helper: pick first available key from a list (table)
+      const pickAny = (obj, keys) => {
+        for (const k of keys) {
+          if (obj && Object.prototype.hasOwnProperty.call(obj, k) && obj[k] != null && String(obj[k]).trim() !== "") {
+            return obj[k];
+          }
+        }
+        return "";
+      };
+
+      // Helper: safe text
+      const esc = (s) => String(s ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+
+      const state = {
+        blocks: {},
+        activeIndustry: "real_estate",
+        activeTable: "",
+        displayMode: "cards"
+      };
+
+      // --- Rendering Logic ---
+
+      function renderIndustryNav() {
+        const nav = document.getElementById("industryTabs");
+        nav.innerHTML = INDUSTRIES.map(ind => `
+          <div class="tab" data-key="${ind.key}" role="tab">
+            ${ind.label}
+          </div>
+        `).join('');
+      }
+
+      function getActiveIndustryObj() {
+        return INDUSTRIES.find(i => i.key === state.activeIndustry) || null;
+      }
+
+      function ensureActiveTable(ind) {
+        if (!ind) return;
+        if (!state.activeTable || !ind.tables.some(t => t.key === state.activeTable)) {
+          state.activeTable = ind.tables[0].key;
+        }
+      }
+
+      function renderSubtabs(ind) {
+        return `
+          <div class="subtabs">
+            ${ind.tables.map(t => `
+              <div class="subtab" data-table="${t.key}" aria-selected="${t.key === state.activeTable}">
+                ${t.label}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function getFilteredRows() {
+        const items = state.blocks[state.activeIndustry]?.items || [];
+        return items.filter(item => item.table === state.activeTable);
+      }
+
+      function updateNavUI() {
+        document.querySelectorAll('.tab').forEach(t => {
+          t.setAttribute('aria-selected', t.dataset.key === state.activeIndustry);
+        });
+      }
+
+      function setViewVisibility() {
+        const cardsEl = document.getElementById("cardsView");
+        const tableEl = document.getElementById("tableView");
+        const debugEl = document.getElementById("debugView");
+
+        cardsEl.style.display = state.displayMode === "cards" ? "block" : "none";
+        tableEl.style.display = state.displayMode === "table" ? "block" : "none";
+        debugEl.style.display = state.displayMode === "raw" ? "block" : "none";
+      }
+
+      function renderCards() {
+        const cardsContainer = document.getElementById("cardsView");
+        const ind = getActiveIndustryObj();
+        if (!ind) return;
+
+        ensureActiveTable(ind);
+        const filtered = getFilteredRows();
+
+        cardsContainer.innerHTML = `
+          <div class="view active">
+            ${renderSubtabs(ind)}
+            <div class="cards">
+              ${filtered.length ? filtered.map(row => `
+                <div class="carditem">
+                  <div class="meta">${esc(pick(row, FIELD_MAP.tag))}</div>
+                  <div class="t">${esc(pick(row, FIELD_MAP.title))}</div>
+                  <div class="b">${esc(pick(row, FIELD_MAP.body))}</div>
+                </div>
+              `).join('') : '<div class="carditem">No updates available for this section.</div>'}
+            </div>
+          </div>
+        `;
+      }
+
+      function renderDataverseTable() {
+        const tableContainer = document.getElementById("tableView");
+        const ind = getActiveIndustryObj();
+        if (!ind) return;
+
+        ensureActiveTable(ind);
+        const filtered = getFilteredRows();
+
+        // Choose column set:
+        // 1) Table-specific columns if defined
+        // 2) Otherwise, fall back to showing keys detected from first row (simple generic table)
+        const configuredCols = TABLE_COLUMNS[state.activeTable];
+
+        let columns = configuredCols;
+        if (!columns) {
+          // Generic fallback: show up to first 6 keys (excluding internal keys)
+          const sample = filtered[0] || {};
+          const keys = Object.keys(sample).filter(k => !["table"].includes(k)).slice(0, 6);
+          columns = keys.map(k => ({ header: k, keys: [k] }));
+        }
+
+        const headerHtml = columns.map(c => `<th>${esc(c.header)}</th>`).join("");
+
+        const rowsHtml = filtered.length ? filtered.map(row => {
+          const cells = columns.map(c => `<td>${esc(pickAny(row, c.keys))}</td>`).join("");
+          return `<tr>${cells}</tr>`;
+        }).join("") : `<tr><td colspan="${columns.length}" style="padding:12px;">No rows found.</td></tr>`;
+
+        tableContainer.innerHTML = `
+          <div class="view active">
+            ${renderSubtabs(ind)}
+
+            <div class="carditem" style="padding:12px; margin-bottom:10px;">
+              <div style="font-weight:800; margin-bottom:6px;">Dataverse Reference View</div>
+              <div style="font-size:12px; opacity:.85;">
+                This view is meant to mirror your Dataverse table structure so updates are easier to track.
+              </div>
+            </div>
+
+            <div class="carditem" style="padding:0; overflow:auto;">
+              <table class="dvtable" style="width:100%; border-collapse:collapse; font-size:13px;">
+                <thead>
+                  <tr>${headerHtml}</tr>
+                </thead>
+                <tbody>
+                  ${rowsHtml}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+
+      function updateDisplay() {
+        updateNavUI();
+        setViewVisibility();
+
+        if (state.displayMode === "cards") renderCards();
+        if (state.displayMode === "table") renderDataverseTable();
+        // raw view renders via fetchData
+      }
+
+      // --- Data Fetching ---
+
+      async function fetchData() {
+        const status = document.getElementById("statusText");
+        const top = document.getElementById("topSelect").value;
+        status.textContent = "Updating...";
+
+        try {
+          const res = await fetch(`${API_BASE}/api/v1/summary/industry-updates?top=${top}`);
+          const data = await res.json();
+
+          if (data.ok) {
+            state.blocks = data.blocks;
+            status.textContent = "Last updated: " + new Date().toLocaleTimeString();
+
+            // Debug view always updated
+            document.getElementById("rawJson").textContent = JSON.stringify(data, null, 2);
+
+            updateDisplay();
+          } else {
+            status.textContent = "API returned not-ok";
+          }
+        } catch (e) {
+          status.textContent = "Connection Error";
+        }
+      }
+
+      // --- Event Listeners ---
+
+      document.addEventListener("click", (e) => {
+        const tab = e.target.closest(".tab");
+        const subtab = e.target.closest(".subtab");
+
+        if (tab) {
+          state.activeIndustry = tab.dataset.key;
+          state.activeTable = ""; // Reset table to default for new industry
+          updateDisplay();
+        }
+
+        // Only treat subtabs as table subtabs if they have data-table
+        if (subtab && subtab.dataset.table) {
+          state.activeTable = subtab.dataset.table;
+          updateDisplay();
+        }
+      });
+
+      document.getElementById("refreshBtn").onclick = fetchData;
+      document.getElementById("topSelect").onchange = fetchData;
+
+      // NEW: display select (replaces old viewSelect)
+      document.getElementById("displaySelect").onchange = (e) => {
+        state.displayMode = e.target.value;
+        updateDisplay();
+      };
+
+      // --- Init ---
+      document.addEventListener("DOMContentLoaded", () => {
+        renderIndustryNav();
+        fetchData();
+      });
+
+    })();
+  </script>
+
+  <!-- Small CSS patch for the Dataverse table (kept here so it works immediately).
+       If you prefer, we can move this into /static/style.css next step. -->
+  <style>
+    .dvtable th{
+      position: sticky;
+      top: 0;
+      background: #f4f6f8;
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(0,0,0,.12);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .dvtable td{
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(0,0,0,.08);
+      vertical-align: top;
+      min-width: 180px;
+    }
+    .dvtable tr:hover td{
+      background: rgba(0,0,0,.03);
+    }
+  </style>
+
+</body>
+</html>
+
