@@ -49,11 +49,12 @@
       <div class="sidebar-title">Industries</div>
       <nav id="industryNav" class="nav"></nav>
 <button class="navitem assistant-btn" id="assistantOpenBtn" type="button">
-  <span>Assistant</span>
+  <span>AI Assistant</span>
   <span class="chip">Chat</span>
 </button>
 
 <div class="sidebar-divider"></div>
+
 
       <div class="sidebar-divider"></div>
 
@@ -82,7 +83,9 @@
       </section>
     </section>
   </main>
-<!-- Assistant Drawer -->
+<!-- =========================
+     JDAS AI Assistant Drawer
+========================= -->
 <div class="drawer" id="assistantDrawer" aria-hidden="true">
   <div class="drawer-overlay" id="assistantOverlay"></div>
 
@@ -90,18 +93,20 @@
     <div class="drawer-head">
       <div>
         <div class="drawer-title">JDAS AI Assistant</div>
-        <div class="drawer-sub">Ask questions about the insights on this dashboard.</div>
+        <div class="drawer-sub">
+          Ask questions about the insights shown on this dashboard.
+        </div>
       </div>
 
       <button class="btn" id="assistantCloseBtn" type="button">Close</button>
     </div>
 
     <div class="drawer-body">
-      <!-- Chatbase embed target -->
       <div id="chatbaseMount" class="chatbase-mount"></div>
     </div>
   </div>
 </div>
+
   <script src="/static/app.js?v=3.0"></script>
 </body>
 </html>
