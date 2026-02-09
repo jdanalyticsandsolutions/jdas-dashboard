@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>JDAS — Industry Insights</title>
+  <title>JDAS — Industry Updates</title>
   <link rel="stylesheet" href="/static/style.css?v=3.0" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
@@ -16,7 +16,7 @@
     </div>
 
     <div class="appbar-actions">
-      <div class="pill">
+      <div class="pill" title="API status">
         <span class="dot" id="statusDot"></span>
         <span id="statusText">Ready</span>
       </div>
@@ -32,7 +32,7 @@
 
       <label class="select">
         <span>View</span>
-        <select id="displaySelect">
+        <select id="viewSelect">
           <option value="sections" selected>Sections</option>
           <option value="cards">Cards</option>
           <option value="table">Table</option>
@@ -47,7 +47,7 @@
   <main class="layout">
     <aside class="sidebar">
       <div class="sidebar-title">Industries</div>
-      <nav id="industryTabs" class="nav"></nav>
+      <nav id="industryNav" class="nav"></nav>
 
       <div class="sidebar-divider"></div>
 
@@ -63,7 +63,7 @@
         </div>
 
         <div class="search">
-          <input id="searchInput" type="search" placeholder="Search titles, body, tags, IDs..." />
+          <input id="searchInput" type="search" placeholder="Search title, body, tag, ID..." />
         </div>
       </div>
 
