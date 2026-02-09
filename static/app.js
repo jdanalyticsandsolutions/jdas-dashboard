@@ -133,16 +133,6 @@
             </div>
           </div>
           <div class="rowbody">${esc(it.body || "")}</div>
-          <details class="rowdetails">
-            <summary>Trace</summary>
-            <div class="trace">
-              <div><b>industry_key</b>: ${esc(it.industry_key)}</div>
-              <div><b>table_key</b>: ${esc(it.table_key)}</div>
-              <div><b>logical</b>: ${esc(it.table)}</div>
-              <div><b>title_field</b>: ${esc(it.source?.title_field || "")}</div>
-              <div><b>body_field</b>: ${esc(it.source?.body_field || "")}</div>
-            </div>
-          </details>
         </div>
       `).join("") : `<div class="empty small">No matches.</div>`;
 
