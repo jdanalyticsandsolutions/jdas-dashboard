@@ -60,7 +60,10 @@
 
   function openAssistantDrawer() {
     const drawer = document.getElementById("assistantDrawer");
-    if (!drawer) return;
+    if (!drawer) {
+      console.warn("[JDAS] assistantDrawer not found in HTML.");
+      return;
+    }
 
     loadChatbaseOnce();
     drawer.classList.add("open");
@@ -112,7 +115,7 @@
     state.activeIndustry = indKey;
     state.activeTableKey = tableKey;
 
-    // highlight nav
+    // highlight nav (industry/table only)
     $$("#industryNav .navitem").forEach((b) => b.classList.toggle("active", b.dataset.key === indKey));
     $$("#tableNav .navitem").forEach((b) => b.classList.toggle("active", b.dataset.key === tableKey));
 
@@ -343,9 +346,17 @@
   }
 
   /* =========================
-     Global Events
+     Global Click Handler
+     - IMPORTANT: handle assistant FIRST
   ========================= */
   document.addEventListener("click", (e) => {
+    // ✅ Assistant (works even if you accidentally duplicate the button)
+    const assistantBtn = e.target.closest("#assistantOpenBtn, .assistant-btn");
+    if (assistantBtn) {
+      openAssistantDrawer();
+      return;
+    }
+
     const indBtn = e.target.closest("#industryNav .navitem");
     const tblBtn = e.target.closest("#tableNav .navitem");
     const sectHead = e.target.closest(".sectionhead");
@@ -378,7 +389,7 @@
   });
 
   /* =========================
-     DOM Events (controls + assistant)
+     DOM Ready: controls + drawer close behavior
   ========================= */
   document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -391,12 +402,10 @@
         render();
       });
 
-      // Assistant drawer controls
-      const assistantOpenBtn = document.getElementById("assistantOpenBtn");
+      // Drawer close controls (open handled by global click handler above)
       const assistantCloseBtn = document.getElementById("assistantCloseBtn");
       const assistantOverlay = document.getElementById("assistantOverlay");
 
-      assistantOpenBtn?.addEventListener("click", openAssistantDrawer);
       assistantCloseBtn?.addEventListener("click", closeAssistantDrawer);
       assistantOverlay?.addEventListener("click", closeAssistantDrawer);
 
