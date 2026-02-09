@@ -1,6 +1,7 @@
 (() => {
   "use strict";
 
+  // Use same origin; keep as-is for Render/GitHub hosted frontend + backend same host
   const API_BASE = `${location.protocol}//${location.host}`;
 
   const $ = (sel) => document.querySelector(sel);
@@ -13,6 +14,19 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+
+  // Treat certain industry keys as the AI Assistant "button"
+  function isAssistantKey(key) {
+    const k = String(key || "").toLowerCase();
+    // Adjust if your config uses a specific key like "ai_assistant"
+    return (
+      k === "ai_assistant" ||
+      k === "assistant" ||
+      k.includes("assistant") ||
+      k.includes("chat") ||
+      k.includes("chatbot")
+    );
+  }
 
   /* =========================
      Status
@@ -40,11 +54,20 @@
   let chatbaseLoaded = false;
 
   function loadChatbaseOnce() {
+    const mount = document.getElementById("chatbaseMount");
+    if (!mount) {
+      console.warn("[JDAS] chatbaseMount not found in HTML.");
+      return;
+    }
+
+    // If iframe already exists, consider it loaded
+    if (mount.querySelector("iframe")) {
+      chatbaseLoaded = true;
+      return;
+    }
+
     if (chatbaseLoaded) return;
     chatbaseLoaded = true;
-
-    const mount = document.getElementById("chatbaseMount");
-    if (!mount) return;
 
     mount.innerHTML = `
       <iframe
@@ -53,7 +76,7 @@
         height="100%"
         style="border:0; min-height: 700px;"
         loading="lazy"
-        referrerpolicy="no-referrer"
+        allow="clipboard-write; microphone"
       ></iframe>
     `;
   }
@@ -66,9 +89,14 @@
     }
 
     loadChatbaseOnce();
+
     drawer.classList.add("open");
     drawer.setAttribute("aria-hidden", "false");
     document.body.classList.add("no-scroll");
+
+    // Optional: focus for accessibility
+    drawer.setAttribute("tabindex", "-1");
+    drawer.focus?.();
   }
 
   function closeAssistantDrawer() {
@@ -116,8 +144,12 @@
     state.activeTableKey = tableKey;
 
     // highlight nav (industry/table only)
-    $$("#industryNav .navitem").forEach((b) => b.classList.toggle("active", b.dataset.key === indKey));
-    $$("#tableNav .navitem").forEach((b) => b.classList.toggle("active", b.dataset.key === tableKey));
+    $$("#industryNav .navitem").forEach((b) =>
+      b.classList.toggle("active", b.dataset.key === indKey)
+    );
+    $$("#tableNav .navitem").forEach((b) =>
+      b.classList.toggle("active", b.dataset.key === tableKey)
+    );
 
     const ind = getIndustry();
     const tbl = getTable();
@@ -130,19 +162,28 @@
 
   function renderIndustryNav() {
     const nav = $("#industryNav");
+
     nav.innerHTML = state.config.industries
-      .map(
-        (ind) => `
-        <button class="navitem" data-key="${esc(ind.key)}" type="button">
-          <span>${esc(ind.label)}</span>
-        </button>
-      `
-      )
+      .map((ind) => {
+        const assistantClass = isAssistantKey(ind.key) ? " assistant-btn" : "";
+        return `
+          <button class="navitem${assistantClass}" data-key="${esc(ind.key)}" type="button">
+            <span>${esc(ind.label)}</span>
+          </button>
+        `;
+      })
       .join("");
   }
 
   function renderTableNav(ind) {
     const nav = $("#tableNav");
+
+    // If assistant industry, we usually don't want tables shown
+    if (ind && isAssistantKey(ind.key)) {
+      nav.innerHTML = `<div class="empty small">Chat assistant</div>`;
+      return;
+    }
+
     nav.innerHTML = (ind?.tables || [])
       .map(
         (t) => `
@@ -168,7 +209,9 @@
 
   function matchesSearch(item, q) {
     if (!q) return true;
-    const hay = [item.title, item.body, item.tag, item.table_label, item.table, item.id].join(" ").toLowerCase();
+    const hay = [item.title, item.body, item.tag, item.table_label, item.table, item.id]
+      .join(" ")
+      .toLowerCase();
     return hay.includes(q);
   }
 
@@ -307,7 +350,11 @@
   }
 
   function renderRaw() {
-    $("#rawJson").textContent = JSON.stringify({ config: state.config, blocks: state.blocks }, null, 2);
+    $("#rawJson").textContent = JSON.stringify(
+      { config: state.config, blocks: state.blocks },
+      null,
+      2
+    );
   }
 
   function render() {
@@ -330,8 +377,11 @@
 
     renderIndustryNav();
 
-    // default selection
-    state.activeIndustry = state.config.industries?.[0]?.key || "real_estate";
+    // default selection: first NON-assistant industry if possible
+    const firstNonAssistant =
+      state.config.industries?.find((i) => !isAssistantKey(i.key)) || state.config.industries?.[0];
+
+    state.activeIndustry = firstNonAssistant?.key || "real_estate";
     const ind = state.config.industries?.find((i) => i.key === state.activeIndustry);
     state.activeTableKey = ind?.tables?.[0]?.key || "";
 
@@ -347,10 +397,10 @@
 
   /* =========================
      Global Click Handler
-     - IMPORTANT: handle assistant FIRST
+     - IMPORTANT: assistant behavior first
   ========================= */
   document.addEventListener("click", (e) => {
-    // ✅ Assistant (works even if you accidentally duplicate the button)
+    // 1) Dedicated assistant buttons (id or class)
     const assistantBtn = e.target.closest("#assistantOpenBtn, .assistant-btn");
     if (assistantBtn) {
       openAssistantDrawer();
@@ -361,22 +411,29 @@
     const tblBtn = e.target.closest("#tableNav .navitem");
     const sectHead = e.target.closest(".sectionhead");
 
-    // Industry click
+    // 2) Industry click
     if (indBtn) {
       const indKey = indBtn.dataset.key;
+
+      // If this "industry" is the assistant, open drawer instead of changing views
+      if (isAssistantKey(indKey)) {
+        openAssistantDrawer();
+        return;
+      }
+
       const ind = state.config.industries.find((i) => i.key === indKey);
       renderTableNav(ind);
       setActive(indKey, ind?.tables?.[0]?.key || "");
       return;
     }
 
-    // Table click
+    // 3) Table click
     if (tblBtn) {
       setActive(state.activeIndustry, tblBtn.dataset.key);
       return;
     }
 
-    // Section expand/collapse
+    // 4) Section expand/collapse
     if (sectHead) {
       const tKey = sectHead.dataset.table;
       const isOpen = sectHead.getAttribute("aria-expanded") === "true";
@@ -402,7 +459,7 @@
         render();
       });
 
-      // Drawer close controls (open handled by global click handler above)
+      // Drawer close controls
       const assistantCloseBtn = document.getElementById("assistantCloseBtn");
       const assistantOverlay = document.getElementById("assistantOverlay");
 
