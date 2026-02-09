@@ -18,7 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
-app = FastAPI(title="JDAS Analytics API", version="2.2.0")
+app = FastAPI(title="JDAS Analytics API", version="3.0.0")
 
 # --- Environment Config ---
 TENANT_ID = os.getenv("TENANT_ID") or os.getenv("AZURE_TENANT_ID")
@@ -27,14 +27,11 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET") or os.getenv("AZURE_CLIENT_SECRET")
 DATAVERSE_URL = (os.getenv("DATAVERSE_URL") or "").rstrip("/")
 API_BASE = f"{DATAVERSE_URL}/api/data/v9.2"
 
-# Check if we have enough info to run live Dataverse calls
 DATAVERSE_ENABLED = all([TENANT_ID, CLIENT_ID, CLIENT_SECRET, DATAVERSE_URL])
-
-# Optional: set a build/version stamp via env var
 BUILD_STAMP = os.getenv("BUILD_STAMP") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-# --- Dashboard Design Registry ---
-# Defines which tables belong to which industry tab
+# --- Dashboard Registry (SINGLE source of truth) ---
+# NOTE: table keys reference TABLE_MAPPINGS keys below
 INDUSTRY_CONFIG = {
     "real_estate": {
         "label": "Real Estate",
@@ -59,33 +56,67 @@ INDUSTRY_CONFIG = {
 }
 
 # --- Column Mappings ---
-# Maps your Dataverse logical names to the API response structure.
-# The 'dv_fields' section specifically powers the new Vibrant UI.
 TABLE_MAPPINGS = {
-    "marketinsight":      {"logical": "jdas_marketinsight", "title": "jdas_marketcategory", "body": "jdas_markettrends", "tag": "Market"},
-    "housingmarketinsight": {"logical": "jdas_housingmarketinsight", "title": "jdas_insighttheme", "body": "jdas_currentinsight", "tag": "Housing"},
-    "vehiclesalesforecast": {"logical": "jdas_vehiclesalesforecast", "title": "jdas_salesmetric", "body": "jdas_strategicinsight", "tag": "Sales"},
-    "analyticsparadigm":    {"logical": "jdas_analyticsparadigm", "title": "jdas_analyticsfocus", "body": "jdas_significance", "tag": "Ops"},
-    "marketoutlook":        {"logical": "jdas_marketoutlook", "title": "jdas_category", "body": "jdas_keydrivers", "tag": "Outlook"},
-    "markettrendinsight":   {"logical": "jdas_markettrendinsight", "title": "jdas_keysignal", "body": "jdas_trendfor2026", "tag": "Trends"},
-    "marketanalysis":       {"logical": "jdas_marketanalysis", "title": "jdas_theme", "body": "jdas_industryreality2026", "tag": "Analysis"},
-
-    # VIBRANT UI UPDATE:
-    # This mapping ensures the specific columns from your table screenshot 
-    # are passed to the frontend for the organized card layout.
+    "marketinsight": {
+        "logical": "jdas_marketinsight",
+        "label": "Market Insight",
+        "title": "jdas_marketcategory",
+        "body": "jdas_markettrends",
+        "tag": "Market",
+    },
+    "housingmarketinsight": {
+        "logical": "jdas_housingmarketinsight",
+        "label": "Housing Market Insight",
+        "title": "jdas_insighttheme",
+        "body": "jdas_currentinsight",
+        "tag": "Housing",
+    },
+    "vehiclesalesforecast": {
+        "logical": "jdas_vehiclesalesforecast",
+        "label": "Vehicle Sales Forecast",
+        "title": "jdas_salesmetric",
+        "body": "jdas_strategicinsight",
+        "tag": "Sales",
+    },
+    "analyticsparadigm": {
+        "logical": "jdas_analyticsparadigm",
+        "label": "Analytics Paradigm",
+        "title": "jdas_analyticsfocus",
+        "body": "jdas_significance",
+        "tag": "Ops",
+    },
+    "marketoutlook": {
+        "logical": "jdas_marketoutlook",
+        "label": "Market Outlook",
+        "title": "jdas_category",
+        "body": "jdas_keydrivers",
+        "tag": "Outlook",
+    },
+    "markettrendinsight": {
+        "logical": "jdas_markettrendinsight",
+        "label": "Market Trend Insight",
+        "title": "jdas_keysignal",
+        "body": "jdas_trendfor2026",
+        "tag": "Trends",
+    },
+    "marketanalysis": {
+        "logical": "jdas_marketanalysis",
+        "label": "Market Analysis",
+        "title": "jdas_theme",
+        "body": "jdas_industryreality2026",
+        "tag": "Analysis",
+    },
     "aiindustryinsight": {
         "logical": "jdas_aiindustryinsight",
-        # Fallbacks for the old card view
-        "title": "jdas_insightcategory", 
+        "label": "AI Industry Insight",
+        "title": "jdas_insightcategory",
         "body": "jdas_assistantperspective",
         "tag": "AI",
-        
-        # Exact mapping for the new Vibrant Design
         "dv_fields": {
-            "assistant_perspective": "jdas_assistantperspective",       # Column 1 -> Badge
-            "future_unified_view": "jdas_futureunifiedview",           # Column 2 -> Main Title
-            "industry_phase_description": "jdas_industryphasedescription", # Column 3 -> Body Text
-            "insight_category": "jdas_insightcategory"                 # Extra Metadata
+            "assistant_perspective": "jdas_assistantperspective",
+            "future_unified_view": "jdas_futureunifiedview",
+            "industry_phase_description": "jdas_industryphasedescription",
+            "insight_category": "jdas_insightcategory"
         }
     },
 }
@@ -104,7 +135,6 @@ async def get_client() -> httpx.AsyncClient:
 
 async def get_access_token() -> str:
     global _token_expiry_ts
-    # Buffer time: Refresh token if it expires in less than 60 seconds
     if "token" in _token_cache and time.time() < _token_expiry_ts:
         return _token_cache["token"]
 
@@ -118,22 +148,17 @@ async def get_access_token() -> str:
         "grant_type": "client_credentials",
         "scope": f"{DATAVERSE_URL}/.default",
     }
-    
+
     c = await get_client()
     r = await c.post(url, data=data)
     r.raise_for_status()
     j = r.json()
 
     _token_cache["token"] = j["access_token"]
-    # Set expiry to actual expiry minus a 60 second safety buffer
     _token_expiry_ts = time.time() + int(j.get("expires_in", 3600)) - 60
     return _token_cache["token"]
 
 async def resolve_entity_set(logical_name: str) -> str:
-    """
-    Dataverse API requires the 'EntitySetName' (plural) to query, 
-    but we often only know the logical name (singular). This resolves it.
-    """
     if logical_name in _entityset_cache:
         return _entityset_cache[logical_name]
 
@@ -154,9 +179,8 @@ async def fetch_dv_data(logical_name: str, top: int):
     try:
         es = await resolve_entity_set(logical_name)
         token = await get_access_token()
-        # Order by createdon desc to get the newest insights first
         url = f"{API_BASE}/{es}?$top={top}&$orderby=createdon desc"
-        
+
         c = await get_client()
         r = await c.get(
             url,
@@ -172,53 +196,53 @@ async def fetch_dv_data(logical_name: str, top: int):
         return []
 
 # --- Normalization ---
-def normalize(row: dict, table_key: str):
-    """
-    Transforms raw Dataverse JSON into a clean structure for the Frontend.
-    Now supports 'dv_fields' for custom UI mappings.
-    """
+def normalize(row: dict, table_key: str, industry_key: str):
     cfg = TABLE_MAPPINGS.get(table_key)
     if not cfg:
         return None
 
-    # 1. Standard Fields (Legacy/Fallback)
     title_field = cfg.get("title")
     body_field = cfg.get("body")
-    
+
     title = (row.get(title_field) if title_field else None) or row.get("jdas_name") or "Update"
     body = (row.get(body_field) if body_field else None) or ""
 
     out = {
-        "id": row.get(cfg["logical"] + "id"), # Capture the UUID
-        "table": cfg["logical"],
+        # traceability
+        "id": row.get(cfg["logical"] + "id"),
+        "industry_key": industry_key,
+        "table_key": table_key,             # stable key (matches registry)
+        "table": cfg["logical"],            # Dataverse logical name (what you already used)
+        "table_label": cfg.get("label", table_key),
+        "tag": cfg.get("tag", ""),
+
+        # display
         "title": str(title).strip(),
         "body": str(body).strip(),
-        "tag": cfg.get("tag", ""),
-        "createdOn": row.get("createdon"),
+        "createdOn": row.get("createdon") or "",
+
+        # debugging (optional but helpful)
+        "source": {
+            "logical": cfg["logical"],
+            "title_field": title_field,
+            "body_field": body_field,
+        }
     }
 
-    # 2. Advanced Fields (For Vibrant UI)
-    # Extracts specific columns defined in 'dv_fields'
     dv_fields = cfg.get("dv_fields") or {}
-    if dv_fields:
-        for out_key, dv_key in dv_fields.items():
-            # Use .get() to avoid crashing if a column is empty/null in Dataverse
-            val = row.get(dv_key)
-            out[out_key] = val if val is not None else ""
+    for out_key, dv_key in dv_fields.items():
+        val = row.get(dv_key)
+        out[out_key] = val if val is not None else ""
 
     return out
 
 # --- Routes ---
-
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    """
-    Serve index.html with headers to prevent caching issues during development.
-    """
     index_path = TEMPLATES_DIR / "index.html"
     if not index_path.exists():
         return HTMLResponse("<h1>Backend Running</h1><p>No index.html found in /templates</p>")
-        
+
     return FileResponse(
         index_path,
         headers={
@@ -237,31 +261,66 @@ async def health():
         "version": app.version,
     }
 
+@app.get("/api/v1/config")
+async def config():
+    industries = []
+    for ind_key, ind_cfg in INDUSTRY_CONFIG.items():
+        industries.append({
+            "key": ind_key,
+            "label": ind_cfg["label"],
+            "tables": [
+                {
+                    "key": t_key,
+                    "label": TABLE_MAPPINGS.get(t_key, {}).get("label", t_key),
+                    "logical": TABLE_MAPPINGS.get(t_key, {}).get("logical", ""),
+                    "tag": TABLE_MAPPINGS.get(t_key, {}).get("tag", ""),
+                }
+                for t_key in ind_cfg["tables"]
+            ]
+        })
+
+    return {
+        "ok": True,
+        "build_stamp": BUILD_STAMP,
+        "dataverse_enabled": DATAVERSE_ENABLED,
+        "industries": industries,
+    }
+
 @app.get("/api/v1/summary/industry-updates")
 async def industry_updates(top: int = Query(10)):
     """
-    Main aggregator. Fetches data for all defined industries in parallel.
+    Grouped output:
+    blocks[industry].tables[table_key].items[]
     """
     blocks: Dict[str, Dict[str, Any]] = {}
 
-    async def process_industry(ind_key, config):
-        items = []
-        for t_key in config["tables"]:
-            logical = TABLE_MAPPINGS[t_key]["logical"]
-            raw_data = await fetch_dv_data(logical, top)
-            
-            for r in raw_data:
-                n = normalize(r, t_key)
+    async def process_industry(ind_key: str, config: Dict[str, Any]):
+        tables_out: Dict[str, Any] = {}
+
+        async def process_table(t_key: str):
+            cfg = TABLE_MAPPINGS[t_key]
+            raw = await fetch_dv_data(cfg["logical"], top)
+            items = []
+            for r in raw:
+                n = normalize(r, t_key, ind_key)
                 if n:
                     items.append(n)
-        
-        # Sort combined results by date
-        items.sort(key=lambda x: x.get("createdOn", "") or "", reverse=True)
-        blocks[ind_key] = {"items": items}
+            items.sort(key=lambda x: x.get("createdOn", "") or "", reverse=True)
+            tables_out[t_key] = {
+                "label": cfg.get("label", t_key),
+                "logical": cfg["logical"],
+                "tag": cfg.get("tag", ""),
+                "items": items,
+            }
 
-    # Run all industry fetches concurrently for speed
+        await asyncio.gather(*[process_table(t_key) for t_key in config["tables"]])
+
+        blocks[ind_key] = {
+            "label": config.get("label", ind_key),
+            "tables": tables_out
+        }
+
     await asyncio.gather(*[process_industry(k, v) for k, v in INDUSTRY_CONFIG.items()])
-    
     return {"ok": True, "blocks": blocks}
 
 # --- Middleware & Static ---
@@ -275,7 +334,6 @@ app.add_middleware(
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# If running directly (for debugging)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
