@@ -3,415 +3,80 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>JD Analytics — Industry Insights</title>
-  <link rel="stylesheet" href="/static/style.css?v=2.1" />
+  <title>JDAS — Industry Insights</title>
+  <link rel="stylesheet" href="/static/style.css?v=3.0" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 
 <body>
   <header class="appbar">
-    <div class="title">JD ANALYTICS</div>
-    <div class="right">
-      <button class="btn primary" id="refreshBtn">Refresh Data</button>
+    <div class="brand">
+      <div class="brand-title">JD Analytics & Solutions</div>
+      <div class="brand-sub" id="buildStamp">—</div>
+    </div>
+
+    <div class="appbar-actions">
+      <div class="pill">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">Ready</span>
+      </div>
+
+      <label class="select">
+        <span>Rows</span>
+        <select id="topSelect">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+        </select>
+      </label>
+
+      <label class="select">
+        <span>View</span>
+        <select id="displaySelect">
+          <option value="sections" selected>Sections</option>
+          <option value="cards">Cards</option>
+          <option value="table">Table</option>
+          <option value="raw">JSON</option>
+        </select>
+      </label>
+
+      <button class="btn primary" id="refreshBtn">Refresh</button>
     </div>
   </header>
 
-  <main class="container">
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-title">Industries</div>
+      <nav id="industryTabs" class="nav"></nav>
 
-    <div class="toolbar">
-      <div class="group">
-        <span class="badge ok" id="statusBadge">OK</span>
-        <span id="statusText">System Ready</span>
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-title">Tables</div>
+      <nav id="tableNav" class="nav"></nav>
+    </aside>
+
+    <section class="content">
+      <div class="content-head">
+        <div>
+          <div class="h1" id="pageTitle">Industry Updates</div>
+          <div class="muted" id="pageSubtitle">—</div>
+        </div>
+
+        <div class="search">
+          <input id="searchInput" type="search" placeholder="Search titles, body, tags, IDs..." />
+        </div>
       </div>
 
-      <div class="group">
-        <label class="subtab">
-          Rows:
-          <select id="topSelect" style="border:none; background:transparent; font-weight:700;">
-            <option value="5">5</option>
-            <option value="10" selected>10</option>
-            <option value="20">20</option>
-          </select>
-        </label>
+      <section id="sectionsView"></section>
+      <section id="cardsView" style="display:none;"></section>
+      <section id="tableView" style="display:none;"></section>
 
-        <label class="subtab">
-          Display:
-          <select id="displaySelect" style="border:none; background:transparent; font-weight:700;">
-            <option value="cards" selected>Vibrant Cards</option>
-            <option value="table">Dataverse Table</option>
-            <option value="raw">JSON</option>
-          </select>
-        </label>
-      </div>
-    </div>
-
-    <nav class="tabs" id="industryTabs" role="tablist"></nav>
-
-    <section id="cardsView"></section>
-
-    <section id="tableView" style="display:none;"></section>
-
-    <div class="view" id="debugView" style="display:none;">
-      <pre id="rawJson" class="carditem" style="font-size: 11px; overflow: auto;"></pre>
-    </div>
-
+      <section id="debugView" style="display:none;">
+        <pre id="rawJson" class="codebox"></pre>
+      </section>
+    </section>
   </main>
 
-  <script>
-    (() => {
-      "use strict";
-
-      // Configuration
-      const API_BASE = window.API_BASE || `${location.protocol}//${location.host}`;
-
-      const INDUSTRIES = [
-        { key: "real_estate", label: "Real Estate", tables: [
-            { key: "jdas_housingmarketinsight", label: "Housing Market Insight" },
-            { key: "jdas_marketoutlook", label: "Market Outlook" }
-        ]},
-        { key: "automotive", label: "Automotive", tables: [
-            { key: "jdas_vehiclesalesforecast", label: "Sales Forecast" }
-        ]},
-        { key: "analytics_ops", label: "Analytics & Ops", tables: [
-            { key: "jdas_analyticsparadigm", label: "Paradigm" }
-        ]},
-        { key: "ai", label: "AI Developments", tables: [
-            { key: "jdas_aiindustryinsight", label: "AI Insights" }
-        ]},
-        { key: "market", label: "Market Insight", tables: [
-            { key: "jdas_marketinsight", label: "Market Insight" },
-            { key: "jdas_markettrendinsight", label: "Trend Insight" }
-        ]}
-      ];
-
-      // EXISTING Cards field mapping (Fallback)
-      const FIELD_MAP = {
-        title: ["title","name","topic","headline"],
-        body: ["body","insight","notes","content","text","description"],
-        tag: ["tag", "category"]
-      };
-
-      // Table View Column Configuration
-      const TABLE_COLUMNS = {
-        "jdas_aiindustryinsight": [
-          { header: "Assistant Perspective", keys: ["assistant_perspective", "assistantperspective"] },
-          { header: "Future Unified View", keys: ["future_unified_view", "futureunifiedview"] },
-          { header: "Industry Phase Description", keys: ["industry_phase_description", "industryphasedescription"] },
-          { header: "Insight Category", keys: ["insight_category", "insightcategory"] }
-        ]
-      };
-
-      // Helper: pick first available field
-      const pick = (obj, keys) => {
-        for (const k of keys) if (obj?.[k] != null && String(obj[k]).trim() !== "") return obj[k];
-        return "";
-      };
-
-      // Helper: escape HTML
-      const esc = (s) => String(s ?? "")
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;")
-        .replaceAll('"',"&quot;")
-        .replaceAll("'","&#039;");
-
-      // NEW: Theme Generator for Vibrant Cards
-      const getColorTheme = (text) => {
-        if (!text) return 'theme-blue';
-        const t = text.toLowerCase();
-        if (t.includes('security') || t.includes('access') || t.includes('control')) return 'theme-red';
-        if (t.includes('physical') || t.includes('edge') || t.includes('robot')) return 'theme-cyan';
-        if (t.includes('gov') || t.includes('manage') || t.includes('agent')) return 'theme-purple';
-        if (t.includes('gpu') || t.includes('compute') || t.includes('infra')) return 'theme-emerald';
-        return 'theme-blue';
-      };
-
-      const state = {
-        blocks: {},
-        activeIndustry: "real_estate",
-        activeTable: "",
-        displayMode: "cards"
-      };
-
-      // --- Rendering Logic ---
-
-      function renderIndustryNav() {
-        const nav = document.getElementById("industryTabs");
-        nav.innerHTML = INDUSTRIES.map(ind => `
-          <div class="tab" data-key="${ind.key}" role="tab">
-            ${ind.label}
-          </div>
-        `).join('');
-      }
-
-      function getActiveIndustryObj() {
-        return INDUSTRIES.find(i => i.key === state.activeIndustry) || null;
-      }
-
-      function ensureActiveTable(ind) {
-        if (!ind) return;
-        if (!state.activeTable || !ind.tables.some(t => t.key === state.activeTable)) {
-          state.activeTable = ind.tables[0].key;
-        }
-      }
-
-      function renderSubtabs(ind) {
-        return `
-          <div class="subtabs">
-            ${ind.tables.map(t => `
-              <div class="subtab" data-table="${t.key}" aria-selected="${t.key === state.activeTable}">
-                ${t.label}
-              </div>
-            `).join('')}
-          </div>
-        `;
-      }
-
-      function getFilteredRows() {
-        const items = state.blocks[state.activeIndustry]?.items || [];
-        return items.filter(item => item.table === state.activeTable);
-      }
-
-      function updateNavUI() {
-        document.querySelectorAll('.tab').forEach(t => {
-          t.setAttribute('aria-selected', t.dataset.key === state.activeIndustry);
-        });
-      }
-
-      function setViewVisibility() {
-        document.getElementById("cardsView").style.display = state.displayMode === "cards" ? "block" : "none";
-        document.getElementById("tableView").style.display = state.displayMode === "table" ? "block" : "none";
-        document.getElementById("debugView").style.display = state.displayMode === "raw" ? "block" : "none";
-      }
-
-      // --- NEW: VIBRANT CARD RENDERER ---
-      function renderCards() {
-        const cardsContainer = document.getElementById("cardsView");
-        const ind = getActiveIndustryObj();
-        if (!ind) return;
-
-        ensureActiveTable(ind);
-        const filtered = getFilteredRows();
-
-        const cardsHtml = filtered.length ? filtered.map(row => {
-            // Check if this is a "Vibrant" capable row (contains specific AI fields)
-            if (row.future_unified_view) {
-                const themeClass = getColorTheme(row.assistant_perspective);
-                return `
-                  <div class="vibrant-card group ${themeClass}">
-                    <div class="v-bar"></div>
-                    <div class="v-content">
-                      <div class="v-header">
-                        <span class="v-badge">${esc(row.assistant_perspective)}</span>
-                      </div>
-                      <h3 class="v-title">${esc(row.future_unified_view)}</h3>
-                      <p class="v-body">${esc(row.industry_phase_description)}</p>
-                      <div class="v-meta">
-                        <span>${esc(row.insight_category)}</span>
-                        <span>ID: ${esc(row.id).substring(0,6)}...</span>
-                      </div>
-                    </div>
-                  </div>
-                `;
-            } 
-            // Fallback for legacy tables
-            else {
-                return `
-                  <div class="carditem">
-                    <div class="meta">${esc(pick(row, FIELD_MAP.tag))}</div>
-                    <div class="t">${esc(pick(row, FIELD_MAP.title))}</div>
-                    <div class="b">${esc(pick(row, FIELD_MAP.body))}</div>
-                  </div>
-                `;
-            }
-        }).join('') : '<div class="empty-state">No updates available.</div>';
-
-        // Grid layout class depends on if we are showing vibrant cards or legacy cards
-        const gridClass = filtered[0]?.future_unified_view ? "vibrant-grid" : "cards";
-
-        cardsContainer.innerHTML = `
-          <div class="view active">
-            ${renderSubtabs(ind)}
-            <div class="${gridClass}">
-              ${cardsHtml}
-            </div>
-          </div>
-        `;
-      }
-
-      function renderDataverseTable() {
-        const tableContainer = document.getElementById("tableView");
-        const ind = getActiveIndustryObj();
-        if (!ind) return;
-
-        ensureActiveTable(ind);
-        const filtered = getFilteredRows();
-        const configuredCols = TABLE_COLUMNS[state.activeTable];
-
-        let columns = configuredCols;
-        if (!columns) {
-          const sample = filtered[0] || {};
-          const keys = Object.keys(sample).filter(k => !["table"].includes(k)).slice(0, 6);
-          columns = keys.map(k => ({ header: k, keys: [k] }));
-        }
-
-        const headerHtml = columns.map(c => `<th>${esc(c.header)}</th>`).join("");
-        const rowsHtml = filtered.length ? filtered.map(row => {
-          const cells = columns.map(c => `<td>${esc(pick(row, c.keys))}</td>`).join("");
-          return `<tr>${cells}</tr>`;
-        }).join("") : `<tr><td colspan="${columns.length}" style="padding:12px;">No rows found.</td></tr>`;
-
-        tableContainer.innerHTML = `
-          <div class="view active">
-            ${renderSubtabs(ind)}
-            <div class="carditem" style="padding:0; overflow:auto; margin-top: 15px;">
-              <table class="dvtable">
-                <thead><tr>${headerHtml}</tr></thead>
-                <tbody>${rowsHtml}</tbody>
-              </table>
-            </div>
-          </div>
-        `;
-      }
-
-      function updateDisplay() {
-        updateNavUI();
-        setViewVisibility();
-        if (state.displayMode === "cards") renderCards();
-        if (state.displayMode === "table") renderDataverseTable();
-      }
-
-      async function fetchData() {
-        const status = document.getElementById("statusText");
-        const top = document.getElementById("topSelect").value;
-        status.textContent = "Updating...";
-
-        try {
-          const res = await fetch(`${API_BASE}/api/v1/summary/industry-updates?top=${top}`);
-          const data = await res.json();
-
-          if (data.ok) {
-            state.blocks = data.blocks;
-            status.textContent = "Last updated: " + new Date().toLocaleTimeString();
-            document.getElementById("rawJson").textContent = JSON.stringify(data, null, 2);
-            updateDisplay();
-          } else {
-            status.textContent = "API Error";
-          }
-        } catch (e) {
-          status.textContent = "Connection Error";
-        }
-      }
-
-      // --- Event Listeners ---
-      document.addEventListener("click", (e) => {
-        const tab = e.target.closest(".tab");
-        const subtab = e.target.closest(".subtab");
-
-        if (tab) {
-          state.activeIndustry = tab.dataset.key;
-          state.activeTable = ""; 
-          updateDisplay();
-        }
-        if (subtab && subtab.dataset.table) {
-          state.activeTable = subtab.dataset.table;
-          updateDisplay();
-        }
-      });
-
-      document.getElementById("refreshBtn").onclick = fetchData;
-      document.getElementById("topSelect").onchange = fetchData;
-      document.getElementById("displaySelect").onchange = (e) => {
-        state.displayMode = e.target.value;
-        updateDisplay();
-      };
-
-      document.addEventListener("DOMContentLoaded", () => {
-        renderIndustryNav();
-        fetchData();
-      });
-
-    })();
-  </script>
-
-  <style>
-    /* Dataverse Table Styles */
-    .dvtable { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .dvtable th {
-      position: sticky; top: 0; background: #f4f6f8; text-align: left;
-      padding: 10px 12px; border-bottom: 2px solid #dfe3e8; font-weight: 700; white-space: nowrap; color: #455a64;
-    }
-    .dvtable td { padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: top; min-width: 150px; color: #374151; }
-    .dvtable tr:hover td { background: #fafafa; }
-
-    /* VIBRANT GRID LAYOUT */
-    .vibrant-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 20px;
-      padding: 10px 0;
-    }
-
-    /* VIBRANT CARD COMPONENT */
-    .vibrant-card {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-      border: 1px solid #e2e8f0;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
-      position: relative;
-    }
-    .vibrant-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 24px rgba(0,0,0,0.1);
-      border-color: #cbd5e1;
-    }
-
-    .v-bar { height: 5px; width: 100%; }
-    .v-content { padding: 20px; display: flex; flex-direction: column; flex-grow: 1; }
-    
-    .v-header { display: flex; justify-content: space-between; margin-bottom: 12px; }
-    .v-badge {
-      display: inline-block; padding: 4px 10px; border-radius: 99px;
-      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-      border: 1px solid;
-    }
-
-    .v-title {
-      font-size: 17px; font-weight: 700; color: #1e293b; margin: 0 0 10px 0; line-height: 1.4;
-    }
-    .v-body {
-      font-size: 14px; color: #64748b; line-height: 1.6; margin: 0 0 16px 0; flex-grow: 1;
-    }
-    .v-meta {
-      border-top: 1px solid #f1f5f9; padding-top: 12px; font-size: 11px; color: #94a3b8;
-      display: flex; justify-content: space-between;
-    }
-
-    /* THEMES */
-    /* Red / Security */
-    .theme-red .v-bar { background: #ef4444; }
-    .theme-red .v-badge { background: #fef2f2; color: #991b1b; border-color: #fee2e2; }
-    
-    /* Blue / Physical / Default */
-    .theme-blue .v-bar { background: #3b82f6; }
-    .theme-blue .v-badge { background: #eff6ff; color: #1e40af; border-color: #dbeafe; }
-
-    /* Cyan / Edge */
-    .theme-cyan .v-bar { background: #06b6d4; }
-    .theme-cyan .v-badge { background: #ecfeff; color: #155e75; border-color: #cffafe; }
-
-    /* Purple / Governance */
-    .theme-purple .v-bar { background: #a855f7; }
-    .theme-purple .v-badge { background: #faf5ff; color: #6b21a8; border-color: #f3e8ff; }
-
-    /* Emerald / Infrastructure */
-    .theme-emerald .v-bar { background: #10b981; }
-    .theme-emerald .v-badge { background: #ecfdf5; color: #065f46; border-color: #d1fae5; }
-  </style>
-
+  <script src="/static/app.js?v=3.0"></script>
 </body>
 </html>
