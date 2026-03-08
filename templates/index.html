@@ -3,26 +3,51 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>JDAS — Industry Updates</title>
-  <link rel="stylesheet" href="/static/style.css?v=3.0" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <title>Tailored Industry Updates — JDAS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=4.0" />
 </head>
 
 <body>
+
+  <!-- ============================
+       TOP HEADER BAR
+  ============================ -->
   <header class="appbar">
     <div class="brand">
-      <div class="brand-title">JD Analytics & Solutions</div>
-      <div class="brand-sub" id="buildStamp">—</div>
+      <div class="brand-logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect width="28" height="28" rx="8" fill="url(#grad1)"/>
+          <path d="M7 14.5L11.5 19L21 9" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs>
+            <linearGradient id="grad1" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#1D6BF3"/>
+              <stop offset="1" stop-color="#0A3BAF"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title">Tailored Industry Updates</div>
+        <div class="brand-sub">Simple, practical signals for independent business owners</div>
+      </div>
     </div>
 
     <div class="appbar-actions">
-      <div class="pill" title="API status">
+      <div class="status-pill" title="API status">
         <span class="dot" id="statusDot"></span>
-        <span id="statusText">Ready</span>
+        <span id="statusText">Loading…</span>
       </div>
 
-      <label class="select">
-        <span>Rows</span>
+      <div class="view-toggle" id="readToggle">
+        <button class="toggle-btn active" data-mode="quick" type="button">Quick Read</button>
+        <button class="toggle-btn" data-mode="detailed" type="button">Detailed</button>
+      </div>
+
+      <label class="rows-select">
+        <span>Show</span>
         <select id="topSelect">
           <option value="5">5</option>
           <option value="10" selected>10</option>
@@ -30,86 +55,125 @@
         </select>
       </label>
 
-      <label class="select">
-        <span>View</span>
-        <select id="viewSelect">
-          <option value="sections" selected>Sections</option>
-          <option value="cards">Cards</option>
-          <option value="table">Table</option>
-          <option value="raw">JSON</option>
-        </select>
-      </label>
+      <button class="btn-refresh" id="refreshBtn" type="button">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M13.5 7.5A6 6 0 1 1 7.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M10.5 1.5L13.5 1.5L13.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Refresh
+      </button>
 
-      <button class="btn primary" id="refreshBtn">Refresh</button>
+      <button class="btn-search-toggle" id="searchToggle" type="button" aria-label="Search">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.8"/><path d="M11 11L14 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
     </div>
   </header>
 
-  <main class="layout">
-    <aside class="sidebar">
-      <div class="sidebar-title">Industries</div>
-      <nav id="industryNav" class="nav"></nav>
-
-<div class="sidebar-divider"></div>
-
-<!-- AI Assistant button (opens Chatbase drawer) -->
-<button class="navitem assistant-btn" id="assistantOpenBtn" type="button">
-  <span>AI Assistant</span>
-  <span class="chip">Chat</span>
-</button>
-
-<div class="sidebar-divider"></div>
-
-<div class="sidebar-title">Tables</div>
-<nav id="tableNav" class="nav"></nav>
-</aside>
-
-<section class="content">
-  <div class="content-head">
-    <div>
-      <div class="h1" id="pageTitle">Industry Updates</div>
-      <div class="muted" id="pageSubtitle">—</div>
-    </div>
-
-    <div class="search">
-      <input id="searchInput" type="search" placeholder="Search title, body, tag, ID..." />
+  <!-- Search bar (hidden by default) -->
+  <div class="search-bar" id="searchBar" style="display:none;">
+    <div class="search-inner">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="#94a3b8" stroke-width="1.8"/><path d="M11 11L14 14" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <input id="searchInput" type="search" placeholder="Search topics, insights, tags…" autocomplete="off" />
+      <button class="search-close" id="searchClose" type="button">✕</button>
     </div>
   </div>
 
-      <section id="sectionsView"></section>
-      <section id="cardsView" style="display:none;"></section>
-      <section id="tableView" style="display:none;"></section>
+  <!-- ============================
+       HERO STRIP (Top 4 tiles)
+  ============================ -->
+  <div class="hero-strip" id="heroStrip">
+    <div class="hero-tile" id="heroRisk">
+      <div class="hero-tile-label">
+        <span class="hero-icon">🛡️</span> Top Risk
+      </div>
+      <div class="hero-tile-value" id="heroRiskVal">Loading…</div>
+    </div>
+    <div class="hero-tile" id="heroOpportunity">
+      <div class="hero-tile-label">
+        <span class="hero-icon">🚀</span> Top Opportunity
+      </div>
+      <div class="hero-tile-value" id="heroOppVal">Loading…</div>
+    </div>
+    <div class="hero-tile" id="heroCost">
+      <div class="hero-tile-label">
+        <span class="hero-icon">💡</span> Key Insight
+      </div>
+      <div class="hero-tile-value" id="heroCostVal">Loading…</div>
+    </div>
+    <div class="hero-tile" id="heroShift">
+      <div class="hero-tile-label">
+        <span class="hero-icon">📊</span> Watch This
+      </div>
+      <div class="hero-tile-value" id="heroShiftVal">Loading…</div>
+    </div>
+  </div>
 
-      <section id="debugView" style="display:none;">
-        <pre id="rawJson" class="codebox"></pre>
-      </section>
-    </section>
-  </main>
-<!-- =========================
-     JDAS AI Assistant Drawer
-========================= -->
-<div class="drawer" id="assistantDrawer" aria-hidden="true">
-  <div class="drawer-overlay" id="assistantOverlay"></div>
+  <!-- ============================
+       MAIN LAYOUT
+  ============================ -->
+  <main class="layout">
 
-  <div class="drawer-panel" role="dialog" aria-modal="true" aria-label="JDAS AI Assistant">
-    <div class="drawer-head">
-      <div>
-        <div class="drawer-title">JDAS AI Assistant</div>
-        <div class="drawer-sub">
-          Ask questions about the insights shown on this dashboard.
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-section-label">Browse by Industry</div>
+      <nav id="industryNav" class="industry-nav"></nav>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section-label">Topics</div>
+      <nav id="tableNav" class="topic-nav"></nav>
+
+      <div class="sidebar-divider"></div>
+
+      <button class="assistant-btn" id="assistantOpenBtn" type="button">
+        <span class="assistant-icon">🤖</span>
+        <div class="assistant-text">
+          <span class="assistant-label">AI Business Assistant</span>
+          <span class="assistant-hint">Ask anything about these insights</span>
         </div>
+        <span class="assistant-chip">Chat</span>
+      </button>
+    </aside>
+
+    <!-- Main content -->
+    <section class="content">
+
+      <!-- Content header -->
+      <div class="content-head">
+        <div class="content-head-left">
+          <h1 class="page-title" id="pageTitle">Industry Updates</h1>
+          <p class="page-sub" id="pageSubtitle">Select an industry to explore</p>
+        </div>
+        <div class="category-pills" id="categoryPills"></div>
       </div>
 
-   <button class="drawer-close" id="assistantCloseBtn" type="button" aria-label="Close">
-    ✕
-  </button>
-</div> 
+      <!-- Views -->
+      <div id="sectionsView"></div>
 
-    <div class="drawer-body">
-      <div id="chatbaseMount" class="chatbase-mount"></div>
+      <!-- Debug view (hidden, accessible via URL param) -->
+      <div id="debugView" style="display:none;">
+        <pre id="rawJson" class="codebox"></pre>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ============================
+       AI ASSISTANT DRAWER
+  ============================ -->
+  <div class="drawer" id="assistantDrawer" aria-hidden="true">
+    <div class="drawer-overlay" id="assistantOverlay"></div>
+    <div class="drawer-panel" role="dialog" aria-modal="true" aria-label="JDAS AI Assistant">
+      <div class="drawer-head">
+        <div>
+          <div class="drawer-title">🤖 AI Business Assistant</div>
+          <div class="drawer-sub">Ask questions about any of the insights shown on this dashboard.</div>
+        </div>
+        <button class="drawer-close" id="assistantCloseBtn" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="drawer-body">
+        <div id="chatbaseMount" class="chatbase-mount"></div>
+      </div>
     </div>
   </div>
-</div>
 
-  <script src="/static/app.js?v=3.0"></script>
+  <script src="/static/app.js?v=4.0"></script>
 </body>
 </html>
