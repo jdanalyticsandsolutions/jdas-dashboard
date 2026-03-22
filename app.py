@@ -426,8 +426,9 @@ def get_updates(category: str = None, limit: int = 50):
 @app.post("/trigger-update")
 async def trigger_update(x_agent_secret: str = Header(default="")):
     verify_secret(x_agent_secret)
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, run_industry_update)
+    import threading
+    thread = threading.Thread(target=run_industry_update, daemon=True)
+    thread.start()
     return {"success": True, "message": "Agent triggered — check email in ~3 minutes"}
 
 # --- Middleware & Static ---
