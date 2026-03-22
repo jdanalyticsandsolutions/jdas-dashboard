@@ -1,24 +1,32 @@
 import os
 import time
 import asyncio
+import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 from datetime import datetime, timezone
+from contextlib import asynccontextmanager
 
 import httpx
+import psycopg2
+import psycopg2.extras
+import pytz
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from agent_industry_updater import run_industry_update
 
 # --- Initialization ---
 load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
-
-app = FastAPI(title="JDAS Analytics API", version="3.0.0")
+logger = logging.getLogger("jdas_app")
 
 # --- Environment Config ---
 TENANT_ID = os.getenv("TENANT_ID") or os.getenv("AZURE_TENANT_ID")
@@ -30,8 +38,7 @@ API_BASE = f"{DATAVERSE_URL}/api/data/v9.2"
 DATAVERSE_ENABLED = all([TENANT_ID, CLIENT_ID, CLIENT_SECRET, DATAVERSE_URL])
 BUILD_STAMP = os.getenv("BUILD_STAMP") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-# --- Dashboard Registry (SINGLE source of truth) ---
-# NOTE: table keys reference TABLE_MAPPINGS keys below
+# --- Dashboard Registry ---
 INDUSTRY_CONFIG = {
     "real_estate": {
         "label": "Real Estate",
@@ -208,20 +215,15 @@ def normalize(row: dict, table_key: str, industry_key: str):
     body = (row.get(body_field) if body_field else None) or ""
 
     out = {
-        # traceability
         "id": row.get(cfg["logical"] + "id"),
         "industry_key": industry_key,
-        "table_key": table_key,             # stable key (matches registry)
-        "table": cfg["logical"],            # Dataverse logical name (what you already used)
+        "table_key": table_key,
+        "table": cfg["logical"],
         "table_label": cfg.get("label", table_key),
         "tag": cfg.get("tag", ""),
-
-        # display
         "title": str(title).strip(),
         "body": str(body).strip(),
         "createdOn": row.get("createdon") or "",
-
-        # debugging (optional but helpful)
         "source": {
             "logical": cfg["logical"],
             "title_field": title_field,
@@ -236,13 +238,43 @@ def normalize(row: dict, table_key: str, industry_key: str):
 
     return out
 
-# --- Routes ---
+# --- App Lifespan (scheduler) ---
+@asynccontextmanager
+async def lifespan(app):
+    central = pytz.timezone("America/Chicago")
+    scheduler = AsyncIOScheduler(timezone=central)
+    scheduler.add_job(
+        lambda: asyncio.get_event_loop().run_in_executor(None, run_industry_update),
+        CronTrigger(hour=5, minute=0, timezone=central),
+        id="industry_update_job",
+        replace_existing=True,
+        max_instances=1,
+        misfire_grace_time=300,
+    )
+    scheduler.start()
+    logger.info("JDAS Industry Update Agent scheduled — 5:00 AM Central daily")
+    yield
+    scheduler.shutdown()
+
+# --- App Instance ---
+app = FastAPI(title="JDAS Analytics API", version="3.0.0", lifespan=lifespan)
+
+# --- Pydantic Models ---
+class PublishRequest(BaseModel):
+    record_id: str
+
+# --- Auth Helper ---
+def verify_secret(x_agent_secret: str = Header(default="")):
+    expected = os.environ.get("AGENT_SECRET", "")
+    if not expected or x_agent_secret != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+# --- Existing Routes ---
 @app.get("/", response_class=HTMLResponse)
 async def home():
     index_path = TEMPLATES_DIR / "index.html"
     if not index_path.exists():
         return HTMLResponse("<h1>Backend Running</h1><p>No index.html found in /templates</p>")
-
     return FileResponse(
         index_path,
         headers={
@@ -278,7 +310,6 @@ async def config():
                 for t_key in ind_cfg["tables"]
             ]
         })
-
     return {
         "ok": True,
         "build_stamp": BUILD_STAMP,
@@ -288,10 +319,6 @@ async def config():
 
 @app.get("/api/v1/summary/industry-updates")
 async def industry_updates(top: int = Query(10)):
-    """
-    Grouped output:
-    blocks[industry].tables[table_key].items[]
-    """
     blocks: Dict[str, Dict[str, Any]] = {}
 
     async def process_industry(ind_key: str, config: Dict[str, Any]):
@@ -314,7 +341,6 @@ async def industry_updates(top: int = Query(10)):
             }
 
         await asyncio.gather(*[process_table(t_key) for t_key in config["tables"]])
-
         blocks[ind_key] = {
             "label": config.get("label", ind_key),
             "tables": tables_out
@@ -323,11 +349,92 @@ async def industry_updates(top: int = Query(10)):
     await asyncio.gather(*[process_industry(k, v) for k, v in INDUSTRY_CONFIG.items()])
     return {"ok": True, "blocks": blocks}
 
+# --- Industry Agent Endpoints ---
+@app.post("/publish-update")
+def publish_update(
+    payload: PublishRequest,
+    x_agent_secret: str = Header(default="")
+):
+    verify_secret(x_agent_secret)
+    try:
+        with psycopg2.connect(os.environ["INDUSTRY_DB_URL"]) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE news_events
+                    SET status = 'published'
+                    WHERE record_id = %s
+                    RETURNING record_id, headline, category_slug
+                """, (payload.record_id,))
+                row = cur.fetchone()
+                conn.commit()
+        if row:
+            return {"success": True, "record_id": row[0], "headline": row[1], "category": row[2]}
+        return {"error": "record_id not found"}
+    except Exception as e:
+        logger.error(f"publish_update error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/get-updates")
+def get_updates(category: str = None, limit: int = 50):
+    limit = min(max(1, limit), 200)
+    try:
+        with psycopg2.connect(os.environ["INDUSTRY_DB_URL"]) as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                if category:
+                    cur.execute("""
+                        SELECT
+                            n.record_id, n.category_slug, n.subtopic,
+                            n.headline, n.summary, n.business_impact,
+                            n.published_date, n.source_name, n.source_url,
+                            n.directional_signal, n.volatility_flag,
+                            n.geo_scope, n.country_code,
+                            ARRAY(
+                                SELECT tag FROM event_tags
+                                WHERE record_id = n.record_id
+                                ORDER BY tag
+                            ) as tags
+                        FROM news_events n
+                        WHERE n.status = 'published'
+                          AND n.category_slug = %s
+                        ORDER BY n.published_date DESC, n.created_at DESC
+                        LIMIT %s
+                    """, (category, limit))
+                else:
+                    cur.execute("""
+                        SELECT
+                            n.record_id, n.category_slug, n.subtopic,
+                            n.headline, n.summary, n.business_impact,
+                            n.published_date, n.source_name, n.source_url,
+                            n.directional_signal, n.volatility_flag,
+                            n.geo_scope, n.country_code,
+                            ARRAY(
+                                SELECT tag FROM event_tags
+                                WHERE record_id = n.record_id
+                                ORDER BY tag
+                            ) as tags
+                        FROM news_events n
+                        WHERE n.status = 'published'
+                        ORDER BY n.published_date DESC, n.created_at DESC
+                        LIMIT %s
+                    """, (limit,))
+                rows = cur.fetchall()
+        return {"count": len(rows), "updates": [dict(r) for r in rows]}
+    except Exception as e:
+        logger.error(f"get_updates error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/trigger-update")
+async def trigger_update(x_agent_secret: str = Header(default="")):
+    verify_secret(x_agent_secret)
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, run_industry_update)
+    return {"success": True, "message": "Agent triggered — check email in ~3 minutes"}
+
 # --- Middleware & Static ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
