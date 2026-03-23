@@ -13,51 +13,81 @@
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
 
-  // -------------------------
-  // Industry display config
-  // Maps internal keys → friendly labels + icons
-  // -------------------------
+  // ─────────────────────────────────────────────
+  // All 10 categories
+  // ─────────────────────────────────────────────
   const INDUSTRY_DISPLAY = {
-    real_estate:    { label: "Real Estate",       icon: "🏠", desc: "Housing market & property trends" },
-    automotive:     { label: "Automotive",         icon: "🚗", desc: "Vehicle sales & industry outlook" },
-    analytics_ops:  { label: "Operations & AI",   icon: "⚙️", desc: "Business tools, analytics & efficiency" },
-    ai:             { label: "Technology & AI",   icon: "🤖", desc: "AI developments & digital tools" },
-    market:         { label: "Market Insights",   icon: "📈", desc: "Economic signals & business trends" },
-    // fallback for unknown keys:
-    _default:       { label: "Industry",           icon: "📊", desc: "Industry updates" }
+    real_estate:            { label: "Real Estate",               icon: "🏠", desc: "Housing market & property trends" },
+    automotive:             { label: "Automotive",                icon: "🚗", desc: "Vehicle sales & industry outlook" },
+    analytics_ops:          { label: "Analytics & Ops",           icon: "⚙️", desc: "Business tools, analytics & efficiency" },
+    ai_developments:        { label: "AI Developments",           icon: "🤖", desc: "AI developments & digital tools" },
+    market_insight:         { label: "Market Insight",            icon: "📈", desc: "Economic signals & business trends" },
+    supply_chain_logistics: { label: "Supply Chain & Logistics",  icon: "🚚", desc: "Freight, shipping & supply disruptions" },
+    labor_workforce_trends: { label: "Labor & Workforce Trends",  icon: "👷", desc: "Hiring, wages & workforce shifts" },
+    energy_commodities:     { label: "Energy & Commodities",      icon: "⚡", desc: "Oil, gas, utilities & raw materials" },
+    policy_regulation:      { label: "Policy & Regulation",       icon: "⚖️", desc: "Laws, tariffs & regulatory changes" },
+    small_business_pulse:   { label: "Small Business Pulse",      icon: "🏪", desc: "Main Street trends & owner sentiment" },
+    _default:               { label: "Industry",                  icon: "📊", desc: "Industry updates" },
   };
 
-  // Table key → friendly sub-label
-  const TABLE_DISPLAY = {
-    housingmarketinsight: { label: "Housing Market",      icon: "🏡" },
-    marketoutlook:        { label: "Market Outlook",      icon: "🔭" },
-    vehiclesalesforecast: { label: "Vehicle Sales",       icon: "🚙" },
-    analyticsparadigm:    { label: "Analytics Trends",   icon: "📊" },
-    marketinsight:        { label: "Market Signals",      icon: "💹" },
-    markettrendinsight:   { label: "Key Trends",          icon: "📉" },
-    marketanalysis:       { label: "Market Analysis",     icon: "🔍" },
-    aiindustryinsight:    { label: "AI in Business",      icon: "🤖" },
-    _default:             { label: "Updates",             icon: "📋" }
+  // Directional signal → display
+  const SIGNAL_DISPLAY = {
+    positive:           { label: "Positive",        color: "#2e7d32", icon: "▲" },
+    mixed_positive:     { label: "Mixed Positive",  color: "#558b2f", icon: "▲" },
+    neutral:            { label: "Neutral",         color: "#757575", icon: "●" },
+    mixed:              { label: "Mixed",           color: "#f57c00", icon: "◆" },
+    mixed_negative:     { label: "Mixed Negative",  color: "#e65100", icon: "▼" },
+    negative:           { label: "Negative",        color: "#c62828", icon: "▼" },
+    risk_off:           { label: "Risk Off",        color: "#6a1b9a", icon: "⚠" },
+    tight_labor_market: { label: "Tight Labor",     color: "#1565c0", icon: "◆" },
   };
 
-  // Priority badge assignment — rotate through styles by position
   const BADGE_CYCLE = [
-    { cls: "badge-high",  label: "High Impact" },
-    { cls: "badge-watch", label: "Watch This" },
-    { cls: "badge-opp",   label: "Opportunity" },
-    { cls: "badge-info",  label: "Key Insight" },
-    { cls: "badge-ai",    label: "Trending" },
-    { cls: "badge-stable",label: "Steady Trend" },
+    { cls: "badge-high",   label: "High Impact" },
+    { cls: "badge-watch",  label: "Watch This" },
+    { cls: "badge-opp",    label: "Opportunity" },
+    { cls: "badge-info",   label: "Key Insight" },
+    { cls: "badge-ai",     label: "Trending" },
+    { cls: "badge-stable", label: "Steady Trend" },
   ];
 
-  function isAssistantKey(key) {
-    const k = String(key || "").toLowerCase();
-    return k === "ai_assistant" || k === "assistant" || k.includes("assistant") || k.includes("chatbot");
+  // ─────────────────────────────────────────────
+  // State
+  // ─────────────────────────────────────────────
+  const state = {
+    records: [],          // flat array from /get-updates
+    activeCategory: "",   // slug or "" for all
+    readMode: "quick",
+    limit: 50,
+    q: "",
+  };
+
+  // ─────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────
+  function getDisplay(slug) {
+    return INDUSTRY_DISPLAY[slug] || INDUSTRY_DISPLAY._default;
   }
 
-  // -------------------------
-  // Status indicator
-  // -------------------------
+  function truncate(str, len) {
+    if (!str) return "—";
+    return str.length > len ? str.slice(0, len).trimEnd() + "…" : str;
+  }
+
+  function formatDate(iso) {
+    if (!iso) return "";
+    try {
+      const d = new Date(iso);
+      if (isNaN(d)) return iso;
+      const now = new Date();
+      const diff = Math.floor((now - d) / 86400000);
+      if (diff === 0) return "today";
+      if (diff === 1) return "yesterday";
+      if (diff < 7) return `${diff} days ago`;
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    } catch { return iso; }
+  }
+
   function setStatus(kind, text) {
     const dot = $("#statusDot");
     const label = $("#statusText");
@@ -68,12 +98,12 @@
   async function fetchJSON(path) {
     const res = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    return await res.json();
+    return res.json();
   }
 
-  // -------------------------
+  // ─────────────────────────────────────────────
   // AI Assistant Drawer
-  // -------------------------
+  // ─────────────────────────────────────────────
   let chatbaseLoaded = false;
 
   function loadChatbaseOnce() {
@@ -107,255 +137,157 @@
     document.body.classList.remove("no-scroll");
   }
 
-  // -------------------------
-  // App state
-  // -------------------------
-  const state = {
-    config: null,
-    blocks: null,
-    activeIndustry: null,
-    activeTableKey: null,
-    readMode: "quick",   // "quick" or "detailed"
-    top: 10,
-    q: "",
-  };
-
-  function getIndustryDisplay(key) {
-    return INDUSTRY_DISPLAY[key] || INDUSTRY_DISPLAY._default;
-  }
-  function getTableDisplay(key) {
-    return TABLE_DISPLAY[key] || TABLE_DISPLAY._default;
-  }
-
-  function setReadMode(mode) {
-    state.readMode = mode;
-    if (mode === "quick") {
-      document.body.classList.add("quick-mode");
-    } else {
-      document.body.classList.remove("quick-mode");
-    }
-    // Update toggle UI
-    $$(".toggle-btn").forEach(btn => {
-      btn.classList.toggle("active", btn.dataset.mode === mode);
-    });
-  }
-
-  // -------------------------
-  // Hero strip
-  // -------------------------
+  // ─────────────────────────────────────────────
+  // Hero strip — smart signal-based assignment
+  // ─────────────────────────────────────────────
   function updateHeroStrip() {
-    const allItems = getAllItems();
-    if (!allItems.length) return;
+    const records = state.records;
+    if (!records.length) return;
 
-    // Pull first items from each slot (can be customized later with priority fields)
-    const safe = (i) => allItems[i] ? truncate(allItems[i].title, 60) : "—";
+    const negative = records.filter(r =>
+      ["negative", "mixed_negative", "risk_off"].includes(r.directional_signal)
+    );
+    const positive = records.filter(r =>
+      ["positive", "mixed_positive"].includes(r.directional_signal)
+    );
+    const volatile = records.filter(r => r.volatility_flag);
+    const neutral  = records.filter(r =>
+      ["neutral", "mixed", "tight_labor_market"].includes(r.directional_signal)
+    );
 
-    const heroMap = [
-      { id: "heroRiskVal",  item: allItems[0] },
-      { id: "heroOppVal",   item: allItems[1] },
-      { id: "heroCostVal",  item: allItems[2] },
-      { id: "heroShiftVal", item: allItems[3] },
+    const pick = (arr, fallback) => arr[0] || fallback || records[0];
+
+    const risk       = pick(volatile.filter(r => negative.includes(r)), negative[0]);
+    const opportunity = pick(positive, records[1]);
+    const insight    = pick(neutral, records[2]);
+    const watchThis  = pick(volatile, records[3]);
+
+    const map = [
+      { id: "heroRiskVal",  item: risk },
+      { id: "heroOppVal",   item: opportunity },
+      { id: "heroCostVal",  item: insight },
+      { id: "heroShiftVal", item: watchThis },
     ];
 
-    heroMap.forEach(({ id, item }) => {
+    map.forEach(({ id, item }) => {
       const el = document.getElementById(id);
-      if (el) el.textContent = item ? truncate(item.title, 60) : "No data";
+      if (el) el.textContent = item ? truncate(item.headline, 70) : "No data";
     });
   }
 
-  function getAllItems() {
-    if (!state.blocks) return [];
-    const out = [];
-    for (const [indKey, indData] of Object.entries(state.blocks)) {
-      for (const [tKey, tObj] of Object.entries(indData.tables || {})) {
-        for (const item of tObj.items || []) out.push(item);
-      }
-    }
-    return out;
+  // ─────────────────────────────────────────────
+  // Industry nav (sidebar)
+  // ─────────────────────────────────────────────
+  function getCategories() {
+    const slugs = [...new Set(state.records.map(r => r.category_slug))];
+    return slugs.map(slug => ({ slug, ...getDisplay(slug) }));
   }
 
-  function truncate(str, len) {
-    if (!str) return "—";
-    return str.length > len ? str.slice(0, len).trimEnd() + "…" : str;
-  }
-
-  // -------------------------
-  // Render industry nav
-  // -------------------------
   function renderIndustryNav() {
     const nav = $("#industryNav");
-    nav.innerHTML = state.config.industries
-      .filter(ind => !isAssistantKey(ind.key))
-      .map(ind => {
-        const disp = getIndustryDisplay(ind.key);
-        const isActive = ind.key === state.activeIndustry;
-        return `
-          <button class="ind-btn${isActive ? " active" : ""}" data-ind="${esc(ind.key)}" type="button">
-            <span class="ind-icon">${disp.icon}</span>
-            <span>${esc(ind.label)}</span>
-          </button>`;
-      }).join("");
-  }
-
-  function renderTableNav(ind) {
-    const nav = $("#tableNav");
-    if (!ind || isAssistantKey(ind.key)) {
-      nav.innerHTML = `<div style="font-size:13px;color:var(--muted2);padding:4px 6px;">No topics</div>`;
+    if (!nav) return;
+    const cats = getCategories();
+    if (!cats.length) {
+      nav.innerHTML = `<div style="font-size:13px;color:var(--muted2);padding:4px 6px;">No categories yet</div>`;
       return;
     }
-    nav.innerHTML = (ind.tables || []).map(t => {
-      const disp = getTableDisplay(t.key);
-      const isActive = t.key === state.activeTableKey;
+    nav.innerHTML = cats.map(cat => {
+      const isActive = cat.slug === state.activeCategory;
       return `
-        <button class="topic-btn${isActive ? " active" : ""}" data-tbl="${esc(t.key)}" type="button">
-          <span>${disp.icon} ${esc(t.label)}</span>
-          <span class="topic-tag">${esc(t.tag || "")}</span>
+        <button class="ind-btn${isActive ? " active" : ""}" data-ind="${esc(cat.slug)}" type="button">
+          <span class="ind-icon">${cat.icon}</span>
+          <span>${esc(cat.label)}</span>
         </button>`;
     }).join("");
   }
 
-  // -------------------------
-  // Render category pills
-  // -------------------------
-  function renderCategoryPills(ind) {
+  function renderTableNav() {
+    const nav = $("#tableNav");
+    if (!nav) return;
+    const cats = getCategories();
+    nav.innerHTML = cats.map(cat => {
+      const count = state.records.filter(r => r.category_slug === cat.slug).length;
+      const isActive = cat.slug === state.activeCategory;
+      return `
+        <button class="topic-btn${isActive ? " active" : ""}" data-tbl="${esc(cat.slug)}" type="button">
+          <span>${cat.icon} ${esc(cat.label)}</span>
+          <span class="topic-tag">${count}</span>
+        </button>`;
+    }).join("");
+  }
+
+  function renderCategoryPills() {
     const container = $("#categoryPills");
-    if (!ind || !ind.tables || ind.tables.length <= 1) {
-      container.innerHTML = "";
-      return;
-    }
+    if (!container) return;
+    const cats = getCategories();
+    if (cats.length <= 1) { container.innerHTML = ""; return; }
     container.innerHTML = [
-      `<button class="cat-pill${!state.activeTableKey ? " active" : ""}" data-cat="all" type="button">All Topics</button>`,
-      ...ind.tables.map(t => {
-        const disp = getTableDisplay(t.key);
-        const isActive = t.key === state.activeTableKey;
-        return `<button class="cat-pill${isActive ? " active" : ""}" data-cat="${esc(t.key)}" type="button">${disp.icon} ${esc(t.label)}</button>`;
+      `<button class="cat-pill${!state.activeCategory ? " active" : ""}" data-cat="all" type="button">All</button>`,
+      ...cats.map(cat => {
+        const isActive = cat.slug === state.activeCategory;
+        return `<button class="cat-pill${isActive ? " active" : ""}" data-cat="${esc(cat.slug)}" type="button">${cat.icon} ${esc(cat.label)}</button>`;
       })
     ].join("");
   }
 
-  // -------------------------
-  // Main sections renderer
-  // -------------------------
-  function matchesSearch(item, q) {
+  // ─────────────────────────────────────────────
+  // Cards
+  // ─────────────────────────────────────────────
+  function matchesSearch(record, q) {
     if (!q) return true;
-    const hay = [item.title, item.body, item.tag, item.table_label, item.table, item.id]
-      .join(" ").toLowerCase();
+    const hay = [
+      record.headline, record.summary, record.business_impact,
+      record.category_slug, record.subtopic, record.source_name,
+      ...(record.tags || [])
+    ].join(" ").toLowerCase();
     return hay.includes(q);
   }
 
-  function renderSections() {
-    const container = $("#sectionsView");
-    const blk = state.blocks?.[state.activeIndustry];
-
-    if (!blk?.tables) {
-      container.innerHTML = emptyState("📭", "No data available", "Select an industry from the left to explore updates.");
-      return;
-    }
-
-    const q = state.q.trim().toLowerCase();
-    let sectionIndex = 0;
-
-    const tablesEntries = Object.entries(blk.tables);
-
-    const html = tablesEntries
-      .filter(([tKey]) => !state.activeTableKey || tKey === state.activeTableKey)
-      .map(([tKey, tObj]) => {
-        const items = (tObj.items || []).filter(it => matchesSearch(it, q));
-        const disp = getTableDisplay(tKey);
-        const isOpen = tKey === state.activeTableKey || !state.activeTableKey;
-        const sectionClass = `section-block${isOpen ? " open" : ""}`;
-
-        const cards = items.length
-          ? items.map((it, i) => renderCard(it, sectionIndex * 10 + i)).join("")
-          : `<div style="padding:16px;color:var(--muted);font-size:13px;">No matches for your search.</div>`;
-
-        sectionIndex++;
-
-        return `
-          <div class="${sectionClass}" id="section-${esc(tKey)}">
-            <button class="section-header" data-table="${esc(tKey)}" type="button"
-                    aria-expanded="${isOpen ? 'true' : 'false'}">
-              <div class="section-header-left">
-                <div class="section-icon" style="background:var(--blueSoft);">${disp.icon}</div>
-                <div class="section-meta">
-                  <div class="section-title">${esc(disp.label)}</div>
-                  <div class="section-subtitle">${esc(tObj.label || tKey)}</div>
-                </div>
-              </div>
-              <div class="section-header-right">
-                <span class="section-count">${items.length} update${items.length !== 1 ? "s" : ""}</span>
-                <span class="section-chevron">▼</span>
-              </div>
-            </button>
-            <div class="section-body" style="display:${isOpen ? "flex" : "none"};">
-              ${cards}
-            </div>
-          </div>`;
-      }).join("");
-
-    container.innerHTML = html || emptyState("🔍", "No results", "Try a different search or select another industry.");
-  }
-
-  function renderCard(item, index) {
-    const badge = BADGE_CYCLE[index % BADGE_CYCLE.length];
-    const dateStr = item.createdOn ? formatDate(item.createdOn) : "";
-    const hasExtras = item.body && item.body.length > 20;
-
-    // Build extras for detailed mode
-    // These fields come from Dataverse via normalize():
-    // For aiindustryinsight: assistant_perspective, future_unified_view, industry_phase_description
-    // Other tables: just title + body
-    const extraRows = [];
-
-    if (item.assistant_perspective) {
-      extraRows.push({ label: "AI Perspective", val: item.assistant_perspective });
-    }
-    if (item.future_unified_view) {
-      extraRows.push({ label: "Future Outlook", val: item.future_unified_view });
-    }
-    if (item.industry_phase_description) {
-      extraRows.push({ label: "Industry Phase", val: item.industry_phase_description });
-    }
-
-    const extraHtml = extraRows.length ? `
-      <div class="card-extras">
-        ${extraRows.map(r => `
-          <div class="card-extra-row">
-            <span class="card-extra-label">${esc(r.label)}</span>
-            <span class="card-extra-val">${esc(r.val)}</span>
-          </div>`).join("")}
-      </div>` : "";
-
-    // Owner takeaway — surfaces the body as a concise action note in quick mode
-    const takeaway = item.body ? truncate(item.body, 120) : "";
+  function renderCard(record, index) {
+    const badge   = BADGE_CYCLE[index % BADGE_CYCLE.length];
+    const signal  = SIGNAL_DISPLAY[record.directional_signal] || SIGNAL_DISPLAY.neutral;
+    const dateStr = formatDate(record.published_date);
+    const tags    = (record.tags || []).filter(Boolean).slice(0, 3);
+    const volBadge = record.volatility_flag
+      ? `<span class="badge badge-high" style="margin-left:6px;">⚠ Volatile</span>` : "";
 
     return `
       <div class="biz-card">
         <div class="card-top">
-          <div class="card-title">${esc(item.title || "Business Update")}</div>
-          <span class="badge ${badge.cls}">${badge.label}</span>
+          <div class="card-title">${esc(record.headline || "Industry Update")}</div>
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+            <span class="badge ${badge.cls}">${badge.label}</span>
+            ${volBadge}
+          </div>
         </div>
 
-        ${hasExtras ? `<div class="card-body">${esc(truncate(item.body, 200))}</div>` : ""}
+        <div class="card-signal" style="color:${signal.color};font-size:12px;font-weight:500;margin-bottom:6px;">
+          ${signal.icon} ${signal.label}
+          ${record.geo_scope ? `<span style="color:var(--muted);font-weight:400;margin-left:8px;">${esc(record.geo_scope)}</span>` : ""}
+        </div>
 
-        ${takeaway ? `
+        ${record.summary ? `<div class="card-body">${esc(truncate(record.summary, 220))}</div>` : ""}
+
+        ${record.business_impact ? `
           <div class="card-takeaway">
             <span class="takeaway-icon">💼</span>
             <div class="takeaway-text">
-              <span class="takeaway-label">Owner Takeaway</span>
-              ${esc(takeaway)}
+              <span class="takeaway-label">Business Impact</span>
+              ${esc(record.business_impact)}
             </div>
           </div>` : ""}
 
-        ${extraHtml}
-
         <div class="card-meta">
-          ${item.tag ? `<span class="card-tag">${esc(item.tag)}</span>` : ""}
+          ${tags.map(t => `<span class="card-tag">${esc(t)}</span>`).join("")}
+          ${record.source_name ? `<span class="card-tag" style="background:var(--blueSoft);color:var(--blue);">${esc(record.source_name)}</span>` : ""}
           ${dateStr ? `<span class="card-date">Updated ${dateStr}</span>` : ""}
         </div>
       </div>`;
   }
 
+  // ─────────────────────────────────────────────
+  // Sections renderer
+  // ─────────────────────────────────────────────
   function emptyState(icon, text, sub) {
     return `<div class="empty-state">
       <div class="empty-state-icon">${icon}</div>
@@ -376,144 +308,153 @@
     </div>`;
   }
 
-  function formatDate(iso) {
-    try {
-      const d = new Date(iso);
-      if (isNaN(d)) return iso;
-      const now = new Date();
-      const diff = Math.floor((now - d) / 86400000);
-      if (diff === 0) return "today";
-      if (diff === 1) return "yesterday";
-      if (diff < 7) return `${diff} days ago`;
-      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    } catch { return iso; }
+  function renderSections() {
+    const container = $("#sectionsView");
+    if (!container) return;
+
+    const q = state.q.trim().toLowerCase();
+    const filtered = state.records.filter(r => {
+      const catMatch = !state.activeCategory || r.category_slug === state.activeCategory;
+      const searchMatch = matchesSearch(r, q);
+      return catMatch && searchMatch;
+    });
+
+    if (!filtered.length) {
+      container.innerHTML = emptyState("📭", "No updates found", "Try a different category or check back after the next agent run.");
+      return;
+    }
+
+    // Group by category
+    const grouped = {};
+    filtered.forEach(r => {
+      const slug = r.category_slug;
+      if (!grouped[slug]) grouped[slug] = [];
+      grouped[slug].push(r);
+    });
+
+    let cardIndex = 0;
+    const html = Object.entries(grouped).map(([slug, records]) => {
+      const disp = getDisplay(slug);
+      const isOpen = !state.activeCategory || slug === state.activeCategory;
+      const cards = records.map(r => renderCard(r, cardIndex++)).join("");
+
+      return `
+        <div class="section-block${isOpen ? " open" : ""}" id="section-${esc(slug)}">
+          <button class="section-header" data-table="${esc(slug)}" type="button"
+                  aria-expanded="${isOpen ? "true" : "false"}">
+            <div class="section-header-left">
+              <div class="section-icon" style="background:var(--blueSoft);">${disp.icon}</div>
+              <div class="section-meta">
+                <div class="section-title">${esc(disp.label)}</div>
+                <div class="section-subtitle">${records.length} update${records.length !== 1 ? "s" : ""}</div>
+              </div>
+            </div>
+            <div class="section-header-right">
+              <span class="section-count">${records.length}</span>
+              <span class="section-chevron">▼</span>
+            </div>
+          </button>
+          <div class="section-body" style="display:${isOpen ? "flex" : "none"};">
+            ${cards}
+          </div>
+        </div>`;
+    }).join("");
+
+    container.innerHTML = html;
   }
 
-  function render() {
-    if (!state.config || !state.blocks) return;
+  function setActive(slug) {
+    state.activeCategory = slug;
+    const disp = getDisplay(slug);
+
+    const title = $("#pageTitle");
+    const sub   = $("#pageSubtitle");
+    if (title) title.textContent = slug ? disp.label : "Industry Updates";
+    if (sub)   sub.textContent   = slug ? disp.desc  : "All categories";
+
+    renderIndustryNav();
+    renderTableNav();
+    renderCategoryPills();
     renderSections();
   }
 
-  // -------------------------
-  // Set active industry/table
-  // -------------------------
-  function setActive(indKey, tableKey) {
-    state.activeIndustry = indKey;
-    state.activeTableKey = tableKey;
-
-    const ind = state.config?.industries?.find(i => i.key === indKey);
-
-    // Update page title/subtitle
-    const disp = getIndustryDisplay(indKey);
-    $("#pageTitle").textContent = ind?.label || disp.label || "Industry Updates";
-    $("#pageSubtitle").textContent = disp.desc || "Select a topic below";
-
-    // Re-render navs
-    renderIndustryNav();
-    renderTableNav(ind);
-    renderCategoryPills(ind);
-    render();
-  }
-
-  // -------------------------
-  // Load data
-  // -------------------------
+  // ─────────────────────────────────────────────
+  // Load data from PostgreSQL via /get-updates
+  // ─────────────────────────────────────────────
   async function load() {
     setStatus("busy", "Loading…");
     $("#sectionsView").innerHTML = loadingState();
 
-    const health = await fetchJSON("/api/v1/health");
-    state.config = await fetchJSON("/api/v1/config");
-    state.top = Number($("#topSelect")?.value || 10);
+    const limit = Number($("#topSelect")?.value || 50);
+    state.limit = limit;
 
-    // Pick first non-assistant industry
-    const firstInd = state.config.industries?.find(i => !isAssistantKey(i.key)) || state.config.industries?.[0];
-    state.activeIndustry = firstInd?.key || "";
-    state.activeTableKey = ""; // show all tables on load
-
-    const data = await fetchJSON(`/api/v1/summary/industry-updates?top=${state.top}`);
-    state.blocks = data.blocks || {};
+    const data = await fetchJSON(`/get-updates?limit=${limit}`);
+    state.records = data.updates || [];
 
     setStatus("ok", `Refreshed ${new Date().toLocaleTimeString()}`);
     updateHeroStrip();
-    setActive(state.activeIndustry, state.activeTableKey);
+
+    // Default to first category or all
+    const firstSlug = state.records[0]?.category_slug || "";
+    setActive(state.activeCategory || "");
+
+    renderIndustryNav();
+    renderTableNav();
+    renderCategoryPills();
+    renderSections();
   }
 
-  // -------------------------
+  // ─────────────────────────────────────────────
   // Event delegation
-  // -------------------------
+  // ─────────────────────────────────────────────
   document.addEventListener("click", e => {
-    // Assistant open
     const assistantBtn = e.target.closest("#assistantOpenBtn, .assistant-btn");
     if (assistantBtn) { openAssistantDrawer(); return; }
 
-    // Read mode toggle
     const toggleBtn = e.target.closest(".toggle-btn");
-    if (toggleBtn && toggleBtn.dataset.mode) {
-      setReadMode(toggleBtn.dataset.mode);
+    if (toggleBtn?.dataset.mode) {
+      state.readMode = toggleBtn.dataset.mode;
+      if (state.readMode === "quick") {
+        document.body.classList.add("quick-mode");
+      } else {
+        document.body.classList.remove("quick-mode");
+      }
+      $$(".toggle-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === state.readMode));
       return;
     }
 
-    // Industry nav click
     const indBtn = e.target.closest(".ind-btn");
-    if (indBtn) {
-      const indKey = indBtn.dataset.ind;
-      const ind = state.config?.industries?.find(i => i.key === indKey);
-      state.activeTableKey = ""; // reset to show all topics
-      setActive(indKey, "");
-      return;
-    }
+    if (indBtn) { setActive(indBtn.dataset.ind); return; }
 
-    // Topic nav click
     const tblBtn = e.target.closest(".topic-btn");
-    if (tblBtn) {
-      const tKey = tblBtn.dataset.tbl;
-      setActive(state.activeIndustry, tKey);
-      return;
-    }
+    if (tblBtn) { setActive(tblBtn.dataset.tbl); return; }
 
-    // Category pill click
     const catPill = e.target.closest(".cat-pill");
     if (catPill) {
-      const cat = catPill.dataset.cat;
-      setActive(state.activeIndustry, cat === "all" ? "" : cat);
+      setActive(catPill.dataset.cat === "all" ? "" : catPill.dataset.cat);
       return;
     }
 
-    // Section header expand/collapse
     const sectionHead = e.target.closest(".section-header");
     if (sectionHead) {
-      const tKey = sectionHead.dataset.table;
       const block = sectionHead.closest(".section-block");
       const isOpen = block?.classList.contains("open");
-      const body = block?.querySelector(".section-body");
-
+      const body   = block?.querySelector(".section-body");
       if (block) block.classList.toggle("open", !isOpen);
       if (body)  body.style.display = isOpen ? "none" : "flex";
-      sectionHead.setAttribute("aria-expanded", isOpen ? "false" : "true");
-
-      if (!isOpen) {
-        state.activeTableKey = tKey;
-        // Update sidebar topic highlight without full re-render
-        $$(".topic-btn").forEach(b => b.classList.toggle("active", b.dataset.tbl === tKey));
-        $$(".cat-pill").forEach(b => b.classList.toggle("active", b.dataset.cat === tKey));
-      }
+      sectionHead.setAttribute("aria-expanded", String(!isOpen));
       return;
     }
   });
 
-  // -------------------------
+  // ─────────────────────────────────────────────
   // DOM Ready
-  // -------------------------
+  // ─────────────────────────────────────────────
   document.addEventListener("DOMContentLoaded", async () => {
     try {
-      // Refresh
       $("#refreshBtn")?.addEventListener("click", load);
-
-      // Rows select
       $("#topSelect")?.addEventListener("change", load);
 
-      // Search toggle
       const searchBar = $("#searchBar");
       $("#searchToggle")?.addEventListener("click", () => {
         const visible = searchBar.style.display !== "none";
@@ -523,20 +464,23 @@
       $("#searchClose")?.addEventListener("click", () => {
         searchBar.style.display = "none";
         state.q = "";
-        render();
+        renderSections();
       });
       $("#searchInput")?.addEventListener("input", e => {
         state.q = e.target.value || "";
-        render();
+        renderSections();
       });
 
-      // Drawer close
       $("#assistantCloseBtn")?.addEventListener("click", closeAssistantDrawer);
       $("#assistantOverlay")?.addEventListener("click", closeAssistantDrawer);
       document.addEventListener("keydown", e => { if (e.key === "Escape") closeAssistantDrawer(); });
 
-      // Init read mode
-      setReadMode("quick");
+      document.body.classList.add("quick-mode");
+
+      // Check for debug mode
+      if (location.search.includes("debug=1")) {
+        document.getElementById("debugView").style.display = "block";
+      }
 
       await load();
     } catch (err) {
