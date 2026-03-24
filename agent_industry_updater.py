@@ -1,31 +1,25 @@
 """
-JDAS Industry Update Agent — Production Safe
+Fixes applied per Codex review.
+
+JDAS Industry Update Agent
 Runs daily at 5am Central via APScheduler.
 Searches news for all 10 categories, summarizes via Claude API,
 saves drafts to PostgreSQL, emails digest + Chatbase .txt to Jason.
-
-Fixes applied per Codex review:
-- Per-record savepoints so one failure never rolls back others
-- Email only includes records confirmed inserted to DB
-- Robust Claude response parsing handles tool-use blocks
-- trigger-update endpoint requires AGENT_SECRET env variable
-- All DB connections use context managers (no leaks)
-- limit capped at 200
-- published_date parsed from Claude response if provided
-- run_industry_update runs in thread executor (non-blocking)
 """
 
+import json
+import logging
 import os
 import re
-import uuid
-import json
 import smtplib
-import logging
+import uuid
+from dataclasses import dataclass
 from datetime import date, datetime
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
+from typing import Any
 
 import anthropic
 import psycopg2
@@ -34,14 +28,25 @@ import psycopg2.extras
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("industry_agent")
 
-# ─────────────────────────────────────────────
-# CONFIG — all values from environment variables
-# ─────────────────────────────────────────────
-INDUSTRY_DB_URL    = os.environ["INDUSTRY_DB_URL"]
-ANTHROPIC_API_KEY  = os.environ["ANTHROPIC_API_KEY"]
-GMAIL_ADDRESS      = os.environ["GMAIL_ADDRESS"]
-GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
-AGENT_SECRET       = os.environ.get("AGENT_SECRET", "")
+
+@dataclass(frozen=True)
+class Settings:
+    industry_db_url: str
+    anthropic_api_key: str
+    gmail_address: str
+    gmail_app_password: str
+    agent_secret: str
+
+
+def load_settings() -> Settings:
+    return Settings(
+        industry_db_url=os.environ["INDUSTRY_DB_URL"],
+        anthropic_api_key=os.environ["ANTHROPIC_API_KEY"],
+        gmail_address=os.environ["GMAIL_ADDRESS"],
+        gmail_app_password=os.environ["GMAIL_APP_PASSWORD"],
+        agent_secret=os.environ.get("AGENT_SECRET", ""),
+    )
+
 
 CATEGORIES = [
     {"slug": "real_estate",            "label": "Real Estate"},
@@ -58,21 +63,75 @@ CATEGORIES = [
 
 DIRECTIONAL_SIGNALS = [
     "positive", "mixed_positive", "neutral", "mixed",
-    "mixed_negative", "negative", "risk_off", "tight_labor_market"
+    "mixed_negative", "negative", "risk_off", "tight_labor_market",
 ]
 
+VALID_SOURCE_TYPES = {"wire_service", "government", "trade_org", "financial_press"}
+VALID_GEO_SCOPES   = {"national", "international", "regional", "global"}
 
-# ─────────────────────────────────────────────
-# STEP 1: SEARCH + SUMMARIZE VIA CLAUDE
-# ─────────────────────────────────────────────
-def fetch_updates_for_category(client: anthropic.Anthropic, category: dict) -> list[dict]:
-    """
-    Ask Claude to search for today's top news in a category.
-    Handles tool-use response blocks robustly.
-    Returns list of record dicts or empty list on failure.
-    """
+
+def extract_text_from_response(response: Any) -> str:
+    parts: list[str] = []
+    for block in getattr(response, "content", []):
+        text = getattr(block, "text", None)
+        if block.type == "text" and text:
+            parts.append(text)
+    return "".join(parts).strip()
+
+
+def parse_date(value: Any) -> str:
+    if not value:
+        return date.today().isoformat()
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).date().isoformat()
+        except ValueError:
+            try:
+                return datetime.strptime(value, "%Y-%m-%d").date().isoformat()
+            except ValueError:
+                return date.today().isoformat()
+    return date.today().isoformat()
+
+
+def normalize_source_type(value: Any) -> str:
+    return str(value) if value in VALID_SOURCE_TYPES else "wire_service"
+
+
+def normalize_geo_scope(value: Any) -> str:
+    return str(value) if value in VALID_GEO_SCOPES else "global"
+
+
+def normalize_record(raw: dict[str, Any], category: dict[str, str]) -> dict[str, Any]:
+    return {
+        "slug":               category["slug"],
+        "label":              category["label"],
+        "headline":           str(raw.get("headline", "")).strip(),
+        "subtopic":           raw.get("subtopic"),
+        "summary":            str(raw.get("summary", "")).strip(),
+        "business_impact":    str(raw.get("business_impact", "")).strip(),
+        "directional_signal": raw.get("directional_signal", "neutral")
+                              if raw.get("directional_signal") in DIRECTIONAL_SIGNALS
+                              else "neutral",
+        "volatility_flag":    bool(raw.get("volatility_flag", False)),
+        "source_name":        raw.get("source_name"),
+        "source_url":         raw.get("source_url"),
+        "source_type":        normalize_source_type(raw.get("source_type")),
+        "geo_scope":          normalize_geo_scope(raw.get("geo_scope")),
+        "country_code":       raw.get("country_code") or "MULTI",
+        "verification_status":raw.get("verification_status", "reported"),
+        "published_date":     parse_date(raw.get("published_date")),
+        "tags":               [
+            str(tag).strip()
+            for tag in raw.get("tags", [])
+            if isinstance(tag, str) and str(tag).strip()
+        ][:4],
+    }
+
+
+def fetch_updates_for_category(
+    client: anthropic.Anthropic, category: dict[str, str]
+) -> list[dict[str, Any]]:
     today = date.today().isoformat()
-
     prompt = f"""
 You are a business intelligence analyst for JDAS Analytics & Solutions,
 a consulting firm serving small and rural business owners.
@@ -92,10 +151,10 @@ For each story return a JSON object with exactly these fields:
 - source_type: one of wire_service, government, trade_org, financial_press
 - geo_scope: one of national, international, regional, global
 - country_code: 2-letter ISO code or MULTI or GULF
-- published_date: article publication date in YYYY-MM-DD format if known, otherwise null
+- published_date: article publication date in YYYY-MM-DD when available
 - tags: list of 2-4 relevant snake_case tags
 
-Return ONLY a valid JSON array of objects. No explanation, no markdown, no code fences.
+Return ONLY a valid JSON array of objects. No explanation, no markdown.
 If no significant news exists for this category today, return an empty array [].
 Today's date: {today}
 """
@@ -105,164 +164,138 @@ Today's date: {today}
             model="claude-sonnet-4-20250514",
             max_tokens=2000,
             tools=[{"type": "web_search_20250305", "name": "web_search"}],
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
         )
-    except Exception as e:
-        logger.error(f"Anthropic API error for {category['label']}: {e}")
+    except Exception as exc:
+        logger.error("Anthropic API error for %s: %s", category["label"], exc)
         return []
 
-    # Robustly extract text — response may include tool_use and tool_result blocks
-    raw_text = ""
-    for block in response.content:
-        if hasattr(block, "type") and block.type == "text":
-            raw_text += block.text
-
-    if not raw_text.strip():
-        logger.warning(f"No text content in response for {category['label']}")
+    raw_text = extract_text_from_response(response)
+    if not raw_text:
+        logger.warning("No text response for %s", category["label"])
         return []
 
-    # Strip markdown fences if present
-    clean = re.sub(r"```(?:json)?", "", raw_text).strip()
+    clean = re.sub(r"```json|```", "", raw_text).strip()
 
-    # Find JSON array — handles cases where Claude adds preamble text
+    # Find JSON array even if Claude adds preamble text
     match = re.search(r"\[.*\]", clean, re.DOTALL)
     if not match:
-        logger.warning(f"No JSON array found for {category['label']}: {clean[:200]}")
+        logger.warning("No JSON array found for %s", category["label"])
         return []
 
     try:
         records = json.loads(match.group())
         if not isinstance(records, list):
             return []
-        logger.info(f"  {category['label']}: {len(records)} stories found")
-        return records
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON parse error for {category['label']}: {e}")
+        normalized = [
+            normalize_record(r, category)
+            for r in records
+            if isinstance(r, dict)
+        ]
+        valid = [r for r in normalized if r["headline"] and r["summary"]]
+        logger.info("  %s: %d stories found", category["label"], len(valid))
+        return valid
+    except Exception as exc:
+        logger.error("JSON parse error for %s: %s", category["label"], exc)
         return []
 
 
-# ─────────────────────────────────────────────
-# STEP 2: SAVE DRAFTS TO POSTGRESQL
-# Per-record savepoints — one failure never rolls back others
-# Returns only confirmed-inserted record dicts
-# ─────────────────────────────────────────────
-def save_drafts(records: list[dict]) -> list[dict]:
-    """
-    Insert records as drafts using per-record savepoints.
-    Returns only the records that were actually committed to DB.
-    """
-    confirmed = []
-    today = date.today().isoformat()
+def save_drafts(
+    settings: Settings, records: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    inserted_records: list[dict[str, Any]] = []
 
-    with psycopg2.connect(INDUSTRY_DB_URL) as conn:
-        conn.autocommit = False
+    with psycopg2.connect(settings.industry_db_url) as conn:
         with conn.cursor() as cur:
             for item in records:
                 record_id = (
-                    f"{item['slug']}_{today.replace('-', '_')}"
-                    f"_{str(uuid.uuid4())[:12]}"
+                    f"{item['slug']}_{item['published_date'].replace('-', '_')}"
+                    f"_{uuid.uuid4().hex[:12]}"
                 )
                 try:
-                    cur.execute("SAVEPOINT sp1")
-
-                    # Parse published_date from Claude response if available
-                    raw_date = item.get("published_date")
-                    try:
-                        pub_date = (
-                            datetime.strptime(raw_date, "%Y-%m-%d").date()
-                            if raw_date else date.today()
-                        )
-                    except (ValueError, TypeError):
-                        pub_date = date.today()
-
-                    cur.execute("""
+                    cur.execute("SAVEPOINT before_record_insert")
+                    cur.execute(
+                        """
                         INSERT INTO news_events (
-                            record_id, category_slug, subtopic, headline,
-                            summary, business_impact, published_date,
-                            created_at, geo_scope, country_code,
-                            source_name, source_url, source_type,
-                            verification_status, directional_signal,
-                            volatility_flag, status
+                            record_id, category_slug, subtopic, headline, summary,
+                            business_impact, published_date, created_at, geo_scope,
+                            country_code, source_name, source_url, source_type,
+                            verification_status, directional_signal, volatility_flag,
+                            status
                         ) VALUES (
+                            %s, %s, %s, %s, %s,
+                            %s, %s, NOW(), %s,
                             %s, %s, %s, %s,
                             %s, %s, %s,
-                            NOW(), %s, %s,
-                            %s, %s, %s,
-                            %s, %s,
-                            %s, 'draft'
+                            'draft'
                         )
                         ON CONFLICT (record_id) DO NOTHING
-                    """, (
-                        record_id,
-                        item["slug"],
-                        item.get("subtopic"),
-                        item.get("headline"),
-                        item.get("summary"),
-                        item.get("business_impact"),
-                        pub_date,
-                        item.get("geo_scope"),
-                        item.get("country_code"),
-                        item.get("source_name"),
-                        item.get("source_url"),
-                        item.get("source_type"),
-                        item.get("verification_status", "reported"),
-                        item.get("directional_signal", "neutral"),
-                        bool(item.get("volatility_flag", False)),
-                    ))
+                        """,
+                        (
+                            record_id,
+                            item["slug"],
+                            item.get("subtopic"),
+                            item.get("headline"),
+                            item.get("summary"),
+                            item.get("business_impact"),
+                            item["published_date"],
+                            item.get("geo_scope"),
+                            item.get("country_code"),
+                            item.get("source_name"),
+                            item.get("source_url"),
+                            item.get("source_type"),
+                            item.get("verification_status", "reported"),
+                            item.get("directional_signal", "neutral"),
+                            item.get("volatility_flag", False),
+                        ),
+                    )
 
                     for tag in item.get("tags", []):
-                        if tag and isinstance(tag, str):
-                            cur.execute("""
-                                INSERT INTO event_tags (record_id, tag)
-                                VALUES (%s, %s)
-                                ON CONFLICT (record_id, tag) DO NOTHING
-                            """, (record_id, tag.strip()))
+                        cur.execute(
+                            """
+                            INSERT INTO event_tags (record_id, tag)
+                            VALUES (%s, %s)
+                            ON CONFLICT (record_id, tag) DO NOTHING
+                            """,
+                            (record_id, tag),
+                        )
 
-                    cur.execute("RELEASE SAVEPOINT sp1")
-                    item["_record_id"] = record_id
-                    confirmed.append(item)
-                    logger.info(f"  Drafted: {record_id}")
+                    cur.execute("RELEASE SAVEPOINT before_record_insert")
+                    inserted_item = dict(item)
+                    inserted_item["record_id"] = record_id
+                    inserted_records.append(inserted_item)
+                    logger.info("Drafted: %s", record_id)
 
-                except Exception as e:
-                    cur.execute("ROLLBACK TO SAVEPOINT sp1")
-                    logger.error(f"  Failed to insert {record_id}: {e}")
-                    continue
+                except Exception as exc:
+                    logger.error("DB insert error for %s: %s", record_id, exc)
+                    cur.execute("ROLLBACK TO SAVEPOINT before_record_insert")
 
-            conn.commit()
+        conn.commit()
 
-    logger.info(f"Saved {len(confirmed)}/{len(records)} records to PostgreSQL")
-    return confirmed
+    logger.info("Saved %d/%d records to PostgreSQL", len(inserted_records), len(records))
+    return inserted_records
 
 
-# ─────────────────────────────────────────────
-# STEP 3: GENERATE CHATBASE TRAINING DOC
-# ─────────────────────────────────────────────
-def generate_chatbase_doc(confirmed_records: list[dict]) -> str:
-    """
-    Returns formatted plain text ready to upload to Chatbase.
-    Only includes records confirmed saved to the database.
-    """
+def generate_chatbase_doc(records: list[dict[str, Any]]) -> str:
     today = date.today().strftime("%B %d, %Y")
-    total = len(confirmed_records)
-
     lines = [
-        f"JDAS TAILORED INDUSTRY UPDATES — {today}",
+        f"JDAS TAILORED INDUSTRY UPDATES -- {today}",
         "Generated by JDAS Industry Update Agent",
         "=" * 60,
         "",
         "This document contains the latest industry intelligence across",
         "10 categories tracked by JDAS Analytics & Solutions.",
         "Use this to answer client questions about current business trends.",
-        f"Total updates this run: {total}",
         "",
     ]
 
-    by_category: dict[str, list] = {}
-    for item in confirmed_records:
-        label = item.get("label", item.get("slug", "Unknown"))
-        by_category.setdefault(label, []).append(item)
+    by_category: dict[str, list[dict[str, Any]]] = {}
+    for item in records:
+        by_category.setdefault(item["label"], []).append(item)
 
     for label, items in by_category.items():
+        if not items:
+            continue
         lines += ["=" * 60, f"CATEGORY: {label.upper()}", "=" * 60]
         for item in items:
             lines += [
@@ -285,16 +318,17 @@ def generate_chatbase_doc(confirmed_records: list[dict]) -> str:
     return "\n".join(lines)
 
 
-# ─────────────────────────────────────────────
-# STEP 4: SEND GMAIL DIGEST
-# ─────────────────────────────────────────────
-def send_gmail_digest(confirmed_records: list[dict], chatbase_txt: str):
-    """
-    Sends HTML digest to Jason with Chatbase .txt attached.
-    Only reports records confirmed in the database.
-    """
+def send_gmail_digest(
+    settings: Settings, records: list[dict[str, Any]], chatbase_txt: str
+):
     today = date.today().strftime("%B %d, %Y")
-    total = len(confirmed_records)
+    total = len(records)
+
+    # One-click approve URL — secret baked in so no auth headers needed
+    approve_url = (
+        f"https://jdas-backend.onrender.com/approve-all"
+        f"?secret={settings.agent_secret}"
+    )
 
     signal_colors = {
         "positive":           "#2e7d32",
@@ -307,27 +341,42 @@ def send_gmail_digest(confirmed_records: list[dict], chatbase_txt: str):
         "tight_labor_market": "#1565c0",
     }
 
-    by_category: dict[str, list] = {}
-    for item in confirmed_records:
-        label = item.get("label", item.get("slug", "Unknown"))
-        by_category.setdefault(label, []).append(item)
+    by_category: dict[str, list[dict[str, Any]]] = {}
+    for item in records:
+        by_category.setdefault(item["label"], []).append(item)
 
     html_parts = [f"""
 <html><body style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;">
 <h2 style="color:#1a3c6e;">JDAS Industry Update Digest — {today}</h2>
 <p style="color:#555;">
   <strong>{total} new draft records</strong> saved and verified in PostgreSQL.
-  Review below and publish what looks good.
+  Review below then publish.
 </p>
-<p style="color:#555;font-size:13px;">
-  To publish: <code>POST https://jdas-backend.onrender.com/publish-update</code><br>
-  Body: <code>{{"record_id": "the_record_id"}}</code><br>
-  Header: <code>X-Agent-Secret: [your AGENT_SECRET value]</code>
-</p>
-<hr style="border:1px solid #eee;">
+
+<div style="margin:20px 0;padding:20px;background:#e8f5e9;border-radius:8px;
+     border-left:4px solid #2e7d32;text-align:center;">
+  <p style="margin:0 0 6px;font-weight:600;color:#1b5e20;font-size:16px;">
+    Ready to publish all {total} updates?
+  </p>
+  <p style="margin:0 0 16px;font-size:13px;color:#2e7d32;">
+    Click the button below — opens in your browser and publishes everything instantly.
+  </p>
+  <a href="{approve_url}"
+     style="background:#1a3c6e;color:white;padding:12px 32px;border-radius:6px;
+            text-decoration:none;font-weight:600;font-size:15px;display:inline-block;">
+    Publish All Updates
+  </a>
+  <p style="margin:12px 0 0;font-size:11px;color:#888;">
+    This link is unique to your account. Do not forward this email.
+  </p>
+</div>
+
+<hr style="border:1px solid #eee;margin:20px 0;">
 """]
 
     for label, items in by_category.items():
+        if not items:
+            continue
         html_parts.append(
             f'<h3 style="color:#1a3c6e;border-bottom:2px solid #1a3c6e;'
             f'padding-bottom:4px;">{label}</h3>'
@@ -336,11 +385,13 @@ def send_gmail_digest(confirmed_records: list[dict], chatbase_txt: str):
             signal  = item.get("directional_signal", "neutral")
             color   = signal_colors.get(signal, "#757575")
             vol_tag = "&#9888; Volatile " if item.get("volatility_flag") else ""
-            rid     = item.get("_record_id", "")
+            rid     = item.get("record_id", "")
 
             if item.get("source_url"):
-                src = (f'<a href="{item["source_url"]}" style="color:#1a3c6e;">'
-                       f'{item.get("source_name", "Source")}</a>')
+                src = (
+                    f'<a href="{item["source_url"]}" style="color:#1a3c6e;">'
+                    f'{item.get("source_name", "Source")}</a>'
+                )
             elif item.get("source_name"):
                 src = item["source_name"]
             else:
@@ -373,8 +424,8 @@ def send_gmail_digest(confirmed_records: list[dict], chatbase_txt: str):
 """)
 
     msg = MIMEMultipart("mixed")
-    msg["From"]    = GMAIL_ADDRESS
-    msg["To"]      = GMAIL_ADDRESS
+    msg["From"]    = settings.gmail_address
+    msg["To"]      = settings.gmail_address
     msg["Subject"] = f"JDAS Industry Updates — {total} new drafts — {today}"
     msg.attach(MIMEText("".join(html_parts), "html"))
 
@@ -383,63 +434,58 @@ def send_gmail_digest(confirmed_records: list[dict], chatbase_txt: str):
     encoders.encode_base64(attachment)
     attachment.add_header(
         "Content-Disposition",
-        f'attachment; filename="jdas_chatbase_{date.today().isoformat()}.txt"'
+        f'attachment; filename="jdas_chatbase_{date.today().isoformat()}.txt"',
     )
     msg.attach(attachment)
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
-            server.sendmail(GMAIL_ADDRESS, GMAIL_ADDRESS, msg.as_string())
+            server.login(settings.gmail_address, settings.gmail_app_password)
+            server.sendmail(
+                settings.gmail_address,
+                settings.gmail_address,
+                msg.as_string(),
+            )
         logger.info("Gmail digest sent successfully")
-    except Exception as e:
-        logger.error(f"Gmail send error: {e}")
+    except Exception as exc:
+        logger.error("Gmail send error: %s", exc)
 
 
-# ─────────────────────────────────────────────
-# MAIN AGENT RUNNER
-# ─────────────────────────────────────────────
 def run_industry_update():
-    """
-    Main entry point — safe to call from a background thread.
-    Called by APScheduler at 5am Central daily.
-    """
     logger.info("=" * 50)
     logger.info("JDAS Industry Update Agent starting...")
-    logger.info(f"Run date: {date.today().isoformat()}")
+    logger.info("Run date: %s", date.today().isoformat())
     logger.info("=" * 50)
 
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    all_fetched: list[dict] = []
+    settings = load_settings()
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+
+    all_records: list[dict[str, Any]] = []
 
     for category in CATEGORIES:
-        logger.info(f"Fetching: {category['label']}")
+        logger.info("Fetching: %s", category["label"])
         try:
             updates = fetch_updates_for_category(client, category)
-            for update in updates:
-                update["slug"]  = category["slug"]
-                update["label"] = category["label"]
-            all_fetched.extend(updates)
-        except Exception as e:
-            logger.error(f"Unhandled error fetching {category['label']}: {e}")
-            continue
+            all_records.extend(updates)
+        except Exception as exc:
+            logger.error("Error fetching %s: %s", category["label"], exc)
 
-    logger.info(f"Total fetched: {len(all_fetched)} records")
+    logger.info("Total fetched: %d records", len(all_records))
 
-    if not all_fetched:
-        logger.warning("No records fetched today — skipping DB write and email")
+    if not all_records:
+        logger.warning("No records found today -- skipping email")
         return
 
-    confirmed = save_drafts(all_fetched)
+    inserted_records = save_drafts(settings, all_records)
 
-    if not confirmed:
-        logger.warning("No records saved to DB — skipping email")
+    if not inserted_records:
+        logger.warning("No records inserted -- skipping email")
         return
 
-    chatbase_txt = generate_chatbase_doc(confirmed)
-    send_gmail_digest(confirmed, chatbase_txt)
+    chatbase_txt = generate_chatbase_doc(inserted_records)
+    send_gmail_digest(settings, inserted_records, chatbase_txt)
 
-    logger.info(f"Agent complete. {len(confirmed)} drafts ready for review.")
+    logger.info("Agent complete. %d drafts ready for review.", len(inserted_records))
 
 
 if __name__ == "__main__":
