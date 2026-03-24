@@ -271,6 +271,139 @@ def publish_all_drafts(x_agent_secret: str = Header(default="")):
         logger.error(f"publish_all_drafts error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/approve-all")
+def approve_all(secret: str = ""):
+    expected = os.environ.get("AGENT_SECRET", "")
+    if not expected or secret != expected:
+        return HTMLResponse("""
+        <html><body style="font-family:Arial,sans-serif;max-width:500px;margin:60px auto;text-align:center;">
+          <h2 style="color:#c62828;">Unauthorized</h2>
+          <p style="color:#555;">Invalid or missing secret key.</p>
+        </body></html>
+        """, status_code=401)
+    try:
+        with psycopg2.connect(os.environ["INDUSTRY_DB_URL"]) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE news_events SET status = 'published'
+                    WHERE status = 'draft'
+                    RETURNING record_id, headline, category_slug
+                """)
+                rows = cur.fetchall()
+                conn.commit()
+
+        count = len(rows)
+        categories = list({r[2] for r in rows})
+        cat_list = "".join(f"<li>{c.replace('_', ' ').title()}</li>" for c in sorted(categories))
+        record_list = "".join(
+            f'<li style="font-size:13px;color:#555;margin-bottom:4px;">{r[1]}</li>'
+            for r in rows
+        )
+
+        return HTMLResponse(f"""
+        <html><body style="font-family:Arial,sans-serif;max-width:600px;margin:60px auto;">
+          <div style="text-align:center;margin-bottom:32px;">
+            <div style="font-size:48px;">&#10003;</div>
+            <h2 style="color:#2e7d32;margin:8px 0;">Published Successfully</h2>
+            <p style="color:#555;">{count} update{"s" if count != 1 else ""} are now live on your dashboard.</p>
+          </div>
+          <div style="background:#f9f9f9;border-radius:8px;padding:20px;margin-bottom:20px;">
+            <p style="margin:0 0 8px;font-weight:600;color:#1a3c6e;">Categories updated:</p>
+            <ul style="margin:0;padding-left:20px;color:#333;">{cat_list}</ul>
+          </div>
+          <div style="background:#f9f9f9;border-radius:8px;padding:20px;margin-bottom:24px;">
+            <p style="margin:0 0 8px;font-weight:600;color:#1a3c6e;">Published headlines:</p>
+            <ul style="margin:0;padding-left:20px;">{record_list}</ul>
+          </div>
+          <div style="text-align:center;">
+            <a href="https://jdas-backend.onrender.com"
+               style="background:#1a3c6e;color:white;padding:12px 28px;border-radius:6px;
+                      text-decoration:none;font-weight:600;display:inline-block;">
+              View Live Dashboard
+            </a>
+          </div>
+          <p style="text-align:center;color:#aaa;font-size:12px;margin-top:24px;">
+            JDAS Analytics &amp; Solutions — Tailored Industry Updates
+          </p>
+        </body></html>
+        """)
+
+    except Exception as e:
+        logger.error(f"approve_all error: {e}")
+        return HTMLResponse(f"""
+        <html><body style="font-family:Arial,sans-serif;max-width:500px;margin:60px auto;text-align:center;">
+          <h2 style="color:#c62828;">Something went wrong</h2>
+          <p style="color:#555;">{str(e)}</p>
+        </body></html>
+        """, status_code=500)
+
+@app.get("/approve-all")
+def approve_all(secret: str = ""):
+    expected = os.environ.get("AGENT_SECRET", "")
+    if not expected or secret != expected:
+        return HTMLResponse("""
+        <html><body style="font-family:Arial,sans-serif;max-width:500px;margin:60px auto;text-align:center;">
+          <h2 style="color:#c62828;">Unauthorized</h2>
+          <p style="color:#555;">Invalid or missing secret key.</p>
+        </body></html>
+        """, status_code=401)
+    try:
+        with psycopg2.connect(os.environ["INDUSTRY_DB_URL"]) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE news_events SET status = 'published'
+                    WHERE status = 'draft'
+                    RETURNING record_id, headline, category_slug
+                """)
+                rows = cur.fetchall()
+                conn.commit()
+
+        count = len(rows)
+        categories = list({r[2] for r in rows})
+        cat_list = "".join(f"<li>{c.replace('_', ' ').title()}</li>" for c in sorted(categories))
+        record_list = "".join(
+            f'<li style="font-size:13px;color:#555;margin-bottom:4px;">{r[1]}</li>'
+            for r in rows
+        )
+
+        return HTMLResponse(f"""
+        <html><body style="font-family:Arial,sans-serif;max-width:600px;margin:60px auto;">
+          <div style="text-align:center;margin-bottom:32px;">
+            <div style="font-size:48px;">&#10003;</div>
+            <h2 style="color:#2e7d32;margin:8px 0;">Published Successfully</h2>
+            <p style="color:#555;">{count} update{"s" if count != 1 else ""} are now live on your dashboard.</p>
+          </div>
+          <div style="background:#f9f9f9;border-radius:8px;padding:20px;margin-bottom:20px;">
+            <p style="margin:0 0 8px;font-weight:600;color:#1a3c6e;">Categories updated:</p>
+            <ul style="margin:0;padding-left:20px;color:#333;">{cat_list}</ul>
+          </div>
+          <div style="background:#f9f9f9;border-radius:8px;padding:20px;margin-bottom:24px;">
+            <p style="margin:0 0 8px;font-weight:600;color:#1a3c6e;">Published headlines:</p>
+            <ul style="margin:0;padding-left:20px;">{record_list}</ul>
+          </div>
+          <div style="text-align:center;">
+            <a href="https://jdas-backend.onrender.com"
+               style="background:#1a3c6e;color:white;padding:12px 28px;border-radius:6px;
+                      text-decoration:none;font-weight:600;display:inline-block;">
+              View Live Dashboard
+            </a>
+          </div>
+          <p style="text-align:center;color:#aaa;font-size:12px;margin-top:24px;">
+            JDAS Analytics &amp; Solutions — Tailored Industry Updates
+          </p>
+        </body></html>
+        """)
+
+    except Exception as e:
+        logger.error(f"approve_all error: {e}")
+        return HTMLResponse(f"""
+        <html><body style="font-family:Arial,sans-serif;max-width:500px;margin:60px auto;text-align:center;">
+          <h2 style="color:#c62828;">Something went wrong</h2>
+          <p style="color:#555;">{str(e)}</p>
+        </body></html>
+        """, status_code=500)
+
+
 @app.get("/get-updates")
 def get_updates(category: str = None, limit: int = 50):
     limit = min(max(1, limit), 200)
