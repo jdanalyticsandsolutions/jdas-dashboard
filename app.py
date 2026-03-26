@@ -150,21 +150,56 @@ def normalize(row: dict, table_key: str, industry_key: str):
         out[out_key] = row.get(dv_key) or ""
     return out
 
+# --- Purge Old Stories ---
+def purge_old_stories():
+    """Delete published news_events records older than 7 days to keep the dashboard fresh."""
+    try:
+        with psycopg2.connect(os.environ["INDUSTRY_DB_URL"]) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM news_events
+                    WHERE published_date < NOW() - INTERVAL '7 days'
+                    AND status = 'published'
+                """)
+                deleted = cur.rowcount
+                conn.commit()
+        logger.info(f"Purge complete — {deleted} stories older than 7 days removed")
+    except Exception as e:
+        logger.error(f"purge_old_stories error: {e}")
+
+# Wrapper that purges first, then runs the update agent
+def run_update_with_purge():
+    purge_old_stories()
+    run_industry_update()
+
 # --- App Lifespan (scheduler) ---
 @asynccontextmanager
 async def lifespan(app):
     central = pytz.timezone("America/Chicago")
     scheduler = AsyncIOScheduler(timezone=central)
+
+    # Morning run — 5:00 AM Central
     scheduler.add_job(
-        lambda: threading.Thread(target=run_industry_update, daemon=True).start(),
+        lambda: threading.Thread(target=run_update_with_purge, daemon=True).start(),
         CronTrigger(hour=5, minute=0, timezone=central),
-        id="industry_update_job",
+        id="industry_update_morning",
         replace_existing=True,
         max_instances=1,
         misfire_grace_time=300,
     )
+
+    # Evening run — 5:00 PM Central
+    scheduler.add_job(
+        lambda: threading.Thread(target=run_update_with_purge, daemon=True).start(),
+        CronTrigger(hour=17, minute=0, timezone=central),
+        id="industry_update_evening",
+        replace_existing=True,
+        max_instances=1,
+        misfire_grace_time=300,
+    )
+
     scheduler.start()
-    logger.info("JDAS Industry Update Agent scheduled — 5:00 AM Central daily")
+    logger.info("JDAS Industry Update Agent scheduled — 5:00 AM & 5:00 PM Central daily")
     yield
     scheduler.shutdown()
 
@@ -337,72 +372,6 @@ def approve_all(secret: str = ""):
         </body></html>
         """, status_code=500)
 
-@app.get("/approve-all")
-def approve_all(secret: str = ""):
-    expected = os.environ.get("AGENT_SECRET", "")
-    if not expected or secret != expected:
-        return HTMLResponse("""
-        <html><body style="font-family:Arial,sans-serif;max-width:500px;margin:60px auto;text-align:center;">
-          <h2 style="color:#c62828;">Unauthorized</h2>
-          <p style="color:#555;">Invalid or missing secret key.</p>
-        </body></html>
-        """, status_code=401)
-    try:
-        with psycopg2.connect(os.environ["INDUSTRY_DB_URL"]) as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    UPDATE news_events SET status = 'published'
-                    WHERE status = 'draft'
-                    RETURNING record_id, headline, category_slug
-                """)
-                rows = cur.fetchall()
-                conn.commit()
-
-        count = len(rows)
-        categories = list({r[2] for r in rows})
-        cat_list = "".join(f"<li>{c.replace('_', ' ').title()}</li>" for c in sorted(categories))
-        record_list = "".join(
-            f'<li style="font-size:13px;color:#555;margin-bottom:4px;">{r[1]}</li>'
-            for r in rows
-        )
-
-        return HTMLResponse(f"""
-        <html><body style="font-family:Arial,sans-serif;max-width:600px;margin:60px auto;">
-          <div style="text-align:center;margin-bottom:32px;">
-            <div style="font-size:48px;">&#10003;</div>
-            <h2 style="color:#2e7d32;margin:8px 0;">Published Successfully</h2>
-            <p style="color:#555;">{count} update{"s" if count != 1 else ""} are now live on your dashboard.</p>
-          </div>
-          <div style="background:#f9f9f9;border-radius:8px;padding:20px;margin-bottom:20px;">
-            <p style="margin:0 0 8px;font-weight:600;color:#1a3c6e;">Categories updated:</p>
-            <ul style="margin:0;padding-left:20px;color:#333;">{cat_list}</ul>
-          </div>
-          <div style="background:#f9f9f9;border-radius:8px;padding:20px;margin-bottom:24px;">
-            <p style="margin:0 0 8px;font-weight:600;color:#1a3c6e;">Published headlines:</p>
-            <ul style="margin:0;padding-left:20px;">{record_list}</ul>
-          </div>
-          <div style="text-align:center;">
-            <a href="https://jdas-backend.onrender.com"
-               style="background:#1a3c6e;color:white;padding:12px 28px;border-radius:6px;
-                      text-decoration:none;font-weight:600;display:inline-block;">
-              View Live Dashboard
-            </a>
-          </div>
-          <p style="text-align:center;color:#aaa;font-size:12px;margin-top:24px;">
-            JDAS Analytics &amp; Solutions — Tailored Industry Updates
-          </p>
-        </body></html>
-        """)
-
-    except Exception as e:
-        logger.error(f"approve_all error: {e}")
-        return HTMLResponse(f"""
-        <html><body style="font-family:Arial,sans-serif;max-width:500px;margin:60px auto;text-align:center;">
-          <h2 style="color:#c62828;">Something went wrong</h2>
-          <p style="color:#555;">{str(e)}</p>
-        </body></html>
-        """, status_code=500)
-
 
 @app.get("/get-updates")
 def get_updates(category: str = None, limit: int = 50):
@@ -445,7 +414,7 @@ def get_updates(category: str = None, limit: int = 50):
 @app.post("/trigger-update")
 async def trigger_update(x_agent_secret: str = Header(default="")):
     verify_secret(x_agent_secret)
-    thread = threading.Thread(target=run_industry_update, daemon=True)
+    thread = threading.Thread(target=run_update_with_purge, daemon=True)
     thread.start()
     return {"success": True, "message": "Agent triggered — check email in ~3 minutes"}
 
