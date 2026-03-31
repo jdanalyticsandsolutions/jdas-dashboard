@@ -481,8 +481,8 @@ def run_industry_update():
 
         # Pause between categories to stay under Anthropic's 30k token/min rate limit
         if i < len(CATEGORIES) - 1:
-            logger.info("  Pausing 5s before next category...")
-            time.sleep(5)
+            logger.info("  Pausing 15s before next category...")
+            time.sleep(15)
 
     logger.info("Total fetched: %d records", len(all_records))
 
