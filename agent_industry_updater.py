@@ -11,6 +11,7 @@ import logging
 import os
 import re
 import smtplib
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -470,13 +471,18 @@ def run_industry_update():
 
     all_records: list[dict[str, Any]] = []
 
-    for category in CATEGORIES:
+    for i, category in enumerate(CATEGORIES):
         logger.info("Fetching: %s", category["label"])
         try:
             updates = fetch_updates_for_category(client, category)
             all_records.extend(updates)
         except Exception as exc:
             logger.error("Error fetching %s: %s", category["label"], exc)
+
+        # Pause between categories to stay under Anthropic's 30k token/min rate limit
+        if i < len(CATEGORIES) - 1:
+            logger.info("  Pausing 5s before next category...")
+            time.sleep(5)
 
     logger.info("Total fetched: %d records", len(all_records))
 
